@@ -21,6 +21,7 @@ import {
 import { useAppStore } from '@/store/useAppStore'
 import { createProject, getNextProjectIdentifier } from '@/db/db'
 import type { ProjectStatus, Priority } from '@/types'
+import { useTranslation } from '@/i18n'
 
 const ICON_PRESETS = ['⚡', '🎨', '📚', '📊', '🚀', '🔄', '💡', '🎯', '🛠️', '🔒', '📱', '🌐']
 const COLOR_PRESETS = [
@@ -35,6 +36,7 @@ const COLOR_PRESETS = [
 ]
 
 export function CreateProjectDialog() {
+  const { tx } = useTranslation()
   const { isCreateProjectOpen, setIsCreateProjectOpen } = useAppStore()
   const navigate = useNavigate()
 
@@ -101,24 +103,22 @@ export function CreateProjectDialog() {
       <DialogContent className="max-w-md">
         <form onSubmit={handleSubmit} className="space-y-4">
           <DialogHeader>
-            <DialogTitle>Create New Project</DialogTitle>
+            <DialogTitle>{tx("Create New Project")}</DialogTitle>
             <DialogDescription>
-              Add a new initiative to your workspace with an initial next action.
-            </DialogDescription>
+              {tx("Add a new initiative to your workspace with an initial next action.")}</DialogDescription>
           </DialogHeader>
 
           {/* Icon & Name */}
           <div className="space-y-1.5">
             <label className="text-[11px] font-medium text-text-secondary">
-              Project Name
-            </label>
+              {tx("Project Name")}</label>
             <div className="flex items-center gap-2">
               <span className="flex h-8 w-8 items-center justify-center rounded border border-border bg-bg-base text-sm shrink-0">
                 {icon}
               </span>
               <Input
                 autoFocus
-                placeholder="e.g. Core Engine Architecture"
+                placeholder={tx("e.g. Core Engine Architecture")}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
@@ -142,8 +142,7 @@ export function CreateProjectDialog() {
 
             <div className="space-y-1.5">
               <label className="text-[11px] font-medium text-text-secondary">
-                Status
-              </label>
+                {tx("Status")}</label>
               <Select
                 value={status}
                 onValueChange={(val) => setStatus(val as ProjectStatus)}
@@ -152,19 +151,18 @@ export function CreateProjectDialog() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="backlog">Backlog</SelectItem>
-                  <SelectItem value="paused">Paused</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                  <SelectItem value="archived">Archived</SelectItem>
+                  <SelectItem value="active">{tx("Active")}</SelectItem>
+                  <SelectItem value="backlog">{tx("Backlog")}</SelectItem>
+                  <SelectItem value="paused">{tx("Paused")}</SelectItem>
+                  <SelectItem value="completed">{tx("Completed")}</SelectItem>
+                  <SelectItem value="archived">{tx("Archived")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-1.5">
               <label className="text-[11px] font-medium text-text-secondary">
-                Priority
-              </label>
+                {tx("Priority")}</label>
               <Select
                 value={priority}
                 onValueChange={(val) => setPriority(val as Priority)}
@@ -173,11 +171,11 @@ export function CreateProjectDialog() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="urgent">Urgent</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="low">Low</SelectItem>
-                  <SelectItem value="none">None</SelectItem>
+                  <SelectItem value="urgent">{tx("Urgent")}</SelectItem>
+                  <SelectItem value="high">{tx("High")}</SelectItem>
+                  <SelectItem value="medium">{tx("Medium")}</SelectItem>
+                  <SelectItem value="low">{tx("Low")}</SelectItem>
+                  <SelectItem value="none">{tx("None")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -186,11 +184,11 @@ export function CreateProjectDialog() {
           {/* Next Action Prominent Field */}
           <div className="space-y-1.5 p-2.5 rounded-md bg-accent-blue/5 border border-accent-blue/20">
             <label className="text-[11px] font-semibold text-accent-blue flex items-center gap-1">
-              <span>Next Action</span>
-              <span className="text-text-muted font-normal">(Crucial first step)</span>
+              <span>{tx("Next Action")}</span>
+              <span className="text-text-muted font-normal">{tx("(Crucial first step)")}</span>
             </label>
             <Input
-              placeholder="What is the very next thing to do?"
+              placeholder={tx("What is the very next thing to do?")}
               value={nextAction}
               onChange={(e) => setNextAction(e.target.value)}
               className="border-accent-blue/30 focus-visible:border-accent-blue"
@@ -200,10 +198,9 @@ export function CreateProjectDialog() {
           {/* Description */}
           <div className="space-y-1.5">
             <label className="text-[11px] font-medium text-text-secondary">
-              Description
-            </label>
+              {tx("Description")}</label>
             <Textarea
-              placeholder="What is the goal and scope of this project?"
+              placeholder={tx("What is the goal and scope of this project?")}
               rows={2}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -214,8 +211,7 @@ export function CreateProjectDialog() {
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-medium text-text-secondary">
-                Icon Preset
-              </span>
+                {tx("Icon Preset")}</span>
               <div className="flex gap-1">
                 {ICON_PRESETS.slice(0, 8).map((p) => (
                   <button
@@ -234,8 +230,7 @@ export function CreateProjectDialog() {
 
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-medium text-text-secondary">
-                Theme Color
-              </span>
+                {tx("Theme Color")}</span>
               <div className="flex gap-1.5 items-center">
                 {COLOR_PRESETS.map((c) => (
                   <button
@@ -258,11 +253,9 @@ export function CreateProjectDialog() {
               variant="ghost"
               onClick={() => setIsCreateProjectOpen(false)}
             >
-              Cancel
-            </Button>
+              {tx("Cancel")}</Button>
             <Button type="submit" disabled={!name.trim() || isSubmitting}>
-              Create Project
-            </Button>
+              {tx("Create Project")}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

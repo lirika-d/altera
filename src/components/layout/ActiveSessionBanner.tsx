@@ -1,3 +1,4 @@
+import * as React from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
   Pause,
@@ -5,6 +6,7 @@ import {
   ArrowUpRight,
   Flame,
 } from 'lucide-react'
+import { useTranslation } from '@/i18n'
 import { Button } from '@/components/ui/button'
 import {
   useActiveSession,
@@ -16,6 +18,7 @@ import { useProjects } from '@/hooks/useProjects'
 import { cn } from '@/lib/utils'
 
 export function ActiveSessionBanner() {
+  const { t } = useTranslation()
   const location = useLocation()
   const navigate = useNavigate()
   const activeSession = useActiveSession()
@@ -47,12 +50,12 @@ export function ActiveSessionBanner() {
   return (
     <div
       onClick={() => navigate('/sessions')}
-      title={error || 'Open active work session'}
+      title={error || t('session.open')}
       className={cn(
-        'group flex items-center justify-between h-9 px-4 border-b text-xs transition-colors cursor-pointer select-none shrink-0 z-10',
+        'group flex items-center justify-between h-9 px-6 border-b text-xs transition-colors cursor-pointer select-none shrink-0 z-10',
         isRunning
-          ? 'bg-accent-blue/10 border-accent-blue/30 hover:bg-accent-blue/15 text-text-primary'
-          : 'bg-accent-amber/10 border-accent-amber/30 hover:bg-accent-amber/15 text-text-primary'
+          ? 'bg-[#1b2216]/80 border-accent-olive/30 hover:bg-[#20291a] text-text-primary'
+          : 'bg-[#261f14]/80 border-accent-amber/30 hover:bg-[#2e2618] text-text-primary'
       )}
     >
       {/* Left: Indicator, Project, Title */}
@@ -60,19 +63,19 @@ export function ActiveSessionBanner() {
         <div className="flex items-center gap-1.5 shrink-0">
           <span
             className={cn(
-              'h-2 w-2 rounded-full',
+              'h-1.5 w-1.5 rounded-full',
               isRunning
-                ? 'bg-accent-green animate-pulse'
+                ? 'bg-accent-olive animate-pulse'
                 : 'bg-accent-amber'
             )}
           />
           <span
             className={cn(
-              'font-mono text-[10px] font-semibold uppercase',
-              isRunning ? 'text-accent-green' : 'text-accent-amber'
+              'font-mono text-[11px] font-semibold uppercase tracking-wider',
+              isRunning ? 'text-accent-olive' : 'text-accent-amber'
             )}
           >
-            {activeSession.status}
+            {isRunning ? t('session.running') : t('session.paused')}
           </span>
         </div>
 
@@ -80,7 +83,7 @@ export function ActiveSessionBanner() {
 
         <div className="flex items-center gap-1.5 min-w-0 truncate">
           <span>{project?.icon || '📁'}</span>
-          <span className="font-mono text-[10px] text-text-muted shrink-0">
+          <span className="font-mono text-[11px] text-text-muted shrink-0">
             {project?.identifier || 'ALT'}
           </span>
           <span className="font-medium text-text-primary truncate">
@@ -91,9 +94,9 @@ export function ActiveSessionBanner() {
 
       {/* Right: Live Timer, Quick Controls, Open */}
       <div className="flex items-center gap-3 shrink-0">
-        <div className="flex items-center gap-1.5 font-mono text-xs font-bold">
-          {isRunning && <Flame className="h-3 w-3 text-accent-blue animate-pulse" />}
-          <span className={isRunning ? 'text-accent-blue' : 'text-accent-amber'}>
+        <div className="flex items-center gap-1.5 font-mono text-xs font-semibold">
+          {isRunning && <Flame className="h-3 w-3 text-accent-olive animate-pulse" />}
+          <span className={isRunning ? 'text-accent-olive' : 'text-accent-amber'}>
             {formatTimer(liveElapsedMs)}
           </span>
         </div>
@@ -106,12 +109,12 @@ export function ActiveSessionBanner() {
             onClick={handleToggleTimer}
             disabled={isLoading}
             className="h-6 px-1.5 text-text-secondary hover:text-text-primary"
-            title={isRunning ? 'Pause session' : 'Resume session'}
+            title={isRunning ? t('session.pause') : t('session.resume')}
           >
             {isRunning ? (
               <Pause className="h-3 w-3 text-accent-amber" />
             ) : (
-              <Play className="h-3 w-3 text-accent-green" />
+              <Play className="h-3 w-3 text-accent-olive" />
             )}
           </Button>
 
@@ -125,7 +128,7 @@ export function ActiveSessionBanner() {
             }}
             className="h-6 px-1.5 gap-1 text-[11px] text-text-secondary group-hover:text-text-primary"
           >
-            <span>Open</span>
+            <span>{t('session.open')}</span>
             <ArrowUpRight className="h-3 w-3" />
           </Button>
         </div>

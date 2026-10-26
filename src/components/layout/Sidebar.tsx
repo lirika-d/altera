@@ -1,172 +1,161 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
 import {
-  LayoutDashboard,
+  Home,
   FolderKanban,
   CheckSquare,
+  BookOpen,
   Timer,
-  Settings,
-  ChevronLeft,
+  CalendarDays,
+  BarChart3,
+  ChevronDown,
   ChevronRight,
-  Plus,
+  MoreVertical,
 } from 'lucide-react'
+import { useTranslation } from '@/i18n'
 import { useAppStore } from '@/store/useAppStore'
 import { useProjects } from '@/hooks/useProjects'
-import { useMyTasks } from '@/hooks/useTasks'
-import { useActiveSession } from '@/hooks/useSessions'
+import { useActiveSession, useLiveElapsedMs, formatTimer } from '@/hooks/useSessions'
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
-import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
 export function Sidebar() {
-  const { sidebarCollapsed, toggleSidebar, setIsCreateProjectOpen } = useAppStore()
+  const { t } = useTranslation()
+  const navigate = useNavigate()
+  const { sidebarCollapsed, toggleSidebar } = useAppStore()
   const allProjects = useProjects() || []
-  const myTasks = useMyTasks(50) || []
   const activeSession = useActiveSession()
+  const liveElapsedMs = useLiveElapsedMs(activeSession)
   const activeProjects = allProjects.filter((p) => p.status === 'active')
 
+  // Clean navigation matching Stitch reference: Home icon for workspace, exact routes preserved
   const navItems = [
     {
       to: '/',
-      label: 'Dashboard',
-      icon: LayoutDashboard,
-      badge: undefined,
-      hasActiveDot: false,
+      label: t('nav.workspace'),
+      icon: Home,
+      end: true,
     },
     {
       to: '/projects',
-      label: 'Projects',
+      label: t('nav.projects'),
       icon: FolderKanban,
-      badge: allProjects.length > 0 ? String(allProjects.length) : undefined,
-      hasActiveDot: false,
+      end: false,
     },
     {
       to: '/my-tasks',
-      label: 'My Tasks',
+      label: t('nav.tasks'),
       icon: CheckSquare,
-      badge: myTasks.length > 0 ? String(myTasks.length) : undefined,
-      hasActiveDot: false,
+      end: false,
+    },
+    {
+      to: '/knowledge',
+      label: t('nav.knowledge'),
+      icon: BookOpen,
+      end: false,
     },
     {
       to: '/sessions',
-      label: 'Sessions',
+      label: t('nav.sessions'),
       icon: Timer,
-      badge: activeSession ? (
-        <span className="flex items-center gap-1 font-mono text-[9px] text-accent-green">
-          <span className="h-1.5 w-1.5 rounded-full bg-accent-green animate-pulse" />
-          {activeSession.status === 'running' ? 'Active' : 'Paused'}
-        </span>
-      ) : undefined,
-      hasActiveDot: !!activeSession,
+      end: false,
     },
     {
-      to: '/settings',
-      label: 'Settings',
-      icon: Settings,
-      badge: undefined,
-      hasActiveDot: false,
+      to: '/calendar',
+      label: t('nav.calendar'),
+      icon: CalendarDays,
+      end: false,
+    },
+    {
+      to: '/insights',
+      label: t('nav.insights'),
+      icon: BarChart3,
+      end: false,
     },
   ]
+
+  const activeSessionProject = allProjects.find((p) => p.id === activeSession?.projectId)
 
   return (
     <aside
       className={cn(
-        'relative flex flex-col justify-between h-screen border-r border-border-subtle bg-bg-surface select-none transition-all duration-200 z-30',
-        sidebarCollapsed ? 'w-[48px]' : 'w-[220px]'
+        'altera-sidebar relative max-md:hidden flex flex-col justify-between h-screen border-r border-border-subtle bg-[#10110f] select-none transition-[width] duration-200 z-30 shrink-0',
+        sidebarCollapsed ? 'w-[56px]' : 'w-[216px]'
       )}
     >
-      {/* Top Section */}
+      {/* ─── Top Section ─── */}
       <div className="flex flex-col flex-1 overflow-hidden">
-        {/* Workspace Brand Header */}
-        <div className="flex items-center justify-between h-11 px-3 border-b border-border-subtle">
-          {!sidebarCollapsed ? (
-            <div className="flex items-center gap-2 overflow-hidden">
-              <div className="flex h-5 w-5 items-center justify-center rounded bg-gradient-to-tr from-accent-blue to-accent-purple text-white shadow-sm shrink-0">
-                <span className="font-bold text-[11px] leading-none">A</span>
-              </div>
-              <span className="font-semibold text-xs text-text-primary tracking-wide uppercase truncate">
-                ALTERA
-              </span>
-              <span className="font-mono text-[9px] px-1 py-0.2 bg-white/5 border border-border-subtle rounded text-text-muted">
-                LOCAL
-              </span>
-            </div>
-          ) : (
-            <div className="mx-auto flex h-6 w-6 items-center justify-center rounded bg-gradient-to-tr from-accent-blue to-accent-purple text-white shadow-sm">
-              <span className="font-bold text-xs leading-none">A</span>
-            </div>
+        {/* Brand Header — seamless with no bottom border */}
+        <div
+          className={cn(
+            'flex items-center h-12 shrink-0',
+            sidebarCollapsed ? 'justify-center px-0' : 'px-4'
           )}
-
-          {!sidebarCollapsed && (
+        >
+          {!sidebarCollapsed ? (
+            <NavLink to="/" className="flex items-center gap-2.5 overflow-hidden group">
+              <div className="flex h-7 w-7 items-center justify-center rounded-[5px] bg-accent-olive text-[#121210] font-serif font-bold text-xs shrink-0 shadow-xs transition-transform group-hover:scale-105">
+                <span>A</span>
+              </div>
+              <div className="flex flex-col leading-none overflow-hidden">
+                <span className="font-serif font-normal text-[13px] text-[#f2ede4] tracking-[0.22em] uppercase truncate">
+                  ALTERA
+                </span>
+              </div>
+            </NavLink>
+          ) : (
             <button
+              type="button"
               onClick={toggleSidebar}
-              className="p-1 rounded text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors"
-              title="Collapse sidebar"
+              className="flex h-7 w-7 items-center justify-center rounded-[5px] bg-accent-olive text-[#121210] hover:brightness-110 transition-all"
+              title={t('sidebar.expandSidebar')}
             >
-              <ChevronLeft className="h-3.5 w-3.5" />
+              <span className="font-serif font-bold text-xs leading-none">
+                A
+              </span>
             </button>
           )}
         </div>
 
-        {/* Quick New Project Button */}
-        <div className="p-2">
-          {!sidebarCollapsed ? (
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => setIsCreateProjectOpen(true)}
-              className="w-full justify-start gap-2 bg-bg-elevated/70 border-border text-xs text-text-primary hover:bg-bg-hover shadow-sm"
-            >
-              <Plus className="h-3.5 w-3.5 text-accent-blue" />
-              <span>New Project</span>
-            </Button>
-          ) : (
-            <Tooltip delayDuration={200}>
-              <TooltipTrigger asChild>
-                <button
-                  onClick={() => setIsCreateProjectOpen(true)}
-                  className="flex h-8 w-8 mx-auto items-center justify-center rounded-md bg-bg-elevated border border-border text-text-primary hover:bg-bg-hover transition-colors"
-                >
-                  <Plus className="h-3.5 w-3.5 text-accent-blue" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="right">New Project</TooltipContent>
-            </Tooltip>
-          )}
-        </div>
+        {/* Navigation Category Label with subtle dropdown chevron */}
+        {!sidebarCollapsed && (
+          <div className="px-3.5 pt-2.5 pb-1.5 flex items-center justify-between">
+                <span className="text-xs font-semibold uppercase tracking-[0.06em] text-text-muted">
+              {t('nav.navigation')}
+            </span>
+            <ChevronDown className="h-3 w-3 text-[#828075]/60" />
+          </div>
+        )}
 
-        {/* Primary Navigation */}
-        <nav className="px-2 space-y-0.5">
+        {/* Primary Navigation List: 14px text-sm, h-9.5 row height */}
+        <nav className={cn('space-y-1 mt-0.5', sidebarCollapsed ? 'px-2' : 'px-2.5')}>
           {navItems.map((item) => {
             const Icon = item.icon
             const content = (
               <NavLink
                 key={item.to}
                 to={item.to}
+                end={item.end}
                 className={({ isActive }) =>
                   cn(
-                    'relative flex items-center gap-2.5 h-8 px-2 rounded-md text-xs font-medium transition-colors duration-100',
+                    'group relative flex items-center gap-3 h-9 rounded-md text-[13px] transition-colors duration-150',
+                    sidebarCollapsed ? 'justify-center px-0 w-9 h-9 mx-auto' : 'px-3',
                     isActive
-                      ? 'bg-bg-elevated text-text-primary font-semibold shadow-sm border border-border/50'
-                      : 'text-text-secondary hover:text-text-primary hover:bg-bg-hover/60 border border-transparent',
-                    sidebarCollapsed && 'justify-center px-0 w-8 mx-auto'
+                      ? 'bg-bg-elevated text-text-primary font-semibold border border-border/70 before:absolute before:left-0 before:top-2 before:bottom-2 before:w-0.5 before:rounded-full before:bg-accent-olive'
+                      : 'text-text-secondary hover:text-text-primary hover:bg-bg-hover/50 border border-transparent font-normal'
                   )
                 }
               >
-                <Icon className="h-3.5 w-3.5 shrink-0" />
-                {sidebarCollapsed && item.hasActiveDot && (
-                  <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-accent-green animate-pulse" />
-                )}
-                {!sidebarCollapsed && (
+                {({ isActive }) => (
                   <>
-                    <span className="truncate flex-1">{item.label}</span>
-                    {item.badge !== undefined &&
-                      (typeof item.badge === 'string' || typeof item.badge === 'number' ? (
-                        <span className="font-mono text-[10px] px-1.5 py-0.2 rounded-full bg-bg-base border border-border-subtle text-text-muted">
-                          {item.badge}
-                        </span>
-                      ) : (
-                        item.badge
-                      ))}
+                    <Icon
+                      className={cn(
+                        'h-4 w-4 shrink-0 transition-colors',
+                        isActive ? 'text-accent-olive' : 'text-[#828075] group-hover:text-text-secondary'
+                      )}
+                    />
+                    {!sidebarCollapsed && (
+                      <span className="truncate flex-1 tracking-[-0.01em]">{item.label}</span>
+                    )}
                   </>
                 )}
               </NavLink>
@@ -174,78 +163,153 @@ export function Sidebar() {
 
             if (sidebarCollapsed) {
               return (
-                <Tooltip key={item.to} delayDuration={200}>
+                <Tooltip key={item.to} delayDuration={150}>
                   <TooltipTrigger asChild>{content}</TooltipTrigger>
-                  <TooltipContent side="right">
-                    {item.label}
-                    {item.hasActiveDot ? ' (Active)' : ''}
-                  </TooltipContent>
+                  <TooltipContent side="right">{item.label}</TooltipContent>
                 </Tooltip>
               )
             }
 
-            return content
+            return <div key={item.to}>{content}</div>
           })}
         </nav>
 
-        {/* Active Projects Quick Jump (When Expanded) */}
-        {!sidebarCollapsed && activeProjects.length > 0 && (
-          <div className="mt-4 px-2 flex-1 overflow-y-auto">
-            <div className="flex items-center justify-between px-2 mb-1.5">
-              <span className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">
-                Active Projects
+        {/* ─── Favorites / Active Projects Section ─── */}
+        {!sidebarCollapsed && (
+          <div className="mt-5 px-2.5 flex-1 overflow-y-auto">
+              <div className="px-1 flex items-center justify-between mb-1.5">
+              <span className="text-xs font-semibold uppercase tracking-[0.06em] text-text-muted">
+                {t('sidebar.favorites')}
               </span>
-              <span className="text-[10px] text-text-muted font-mono">
-                {activeProjects.length}
-              </span>
+              <ChevronDown className="h-3 w-3 text-[#828075]/60" />
             </div>
+
             <div className="space-y-0.5">
-              {activeProjects.slice(0, 6).map((proj) => (
+              {activeProjects.slice(0, 5).map((proj, idx) => (
                 <NavLink
                   key={proj.id}
                   to={`/projects/${proj.id}`}
                   className={({ isActive }) =>
                     cn(
-                      'flex items-center gap-2 h-7 px-2 rounded-md text-[11px] transition-colors',
+                      'flex items-center gap-3 h-8 px-3 rounded-md text-[13px] transition-colors',
                       isActive
                         ? 'bg-bg-elevated text-text-primary font-medium'
-                        : 'text-text-secondary hover:text-text-primary hover:bg-bg-hover'
+                        : 'text-text-secondary hover:text-text-primary hover:bg-bg-hover/50 font-normal'
                     )
                   }
                 >
-                  <span className="text-xs shrink-0">{proj.icon || '📁'}</span>
+                  <span
+                    className={cn(
+                      'h-1.5 w-1.5 rounded-full shrink-0',
+                      idx === 0 ? 'bg-accent-olive' : 'bg-[#6b6960]'
+                    )}
+                  />
                   <span className="truncate flex-1">{proj.name}</span>
-                  <span className="font-mono text-[9px] text-text-muted shrink-0">
-                    {proj.progress}%
-                  </span>
                 </NavLink>
               ))}
+
+              {activeProjects.length === 0 && (
+                <div className="text-xs text-text-muted px-3 py-1.5 italic">
+                  {t('dashboard.noProjects')}
+                </div>
+              )}
             </div>
           </div>
         )}
       </div>
 
-      {/* Bottom User / Toggle rail */}
-      <div className="p-2 border-t border-border-subtle">
-        {sidebarCollapsed ? (
-          <Tooltip delayDuration={200}>
+      {/* ─── Bottom Section: Focus Widget + User Profile ─── */}
+      <div className="p-3 border-t border-border-subtle space-y-3 shrink-0 bg-[#10110f]">
+        {/* Focus Session Card matching Stitch */}
+        {!sidebarCollapsed ? (
+          <div
+            onClick={() => navigate('/sessions')}
+            className="p-3 rounded-md border border-border bg-bg-base hover:border-[#3a3d34] transition-colors cursor-pointer group"
+          >
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-[#828075]">
+                {t('sidebar.focus')}
+              </span>
+              <span className="text-xs font-sans text-accent-olive font-medium flex items-center gap-1.5">
+                {activeSession ? (
+                  <>
+                    <span
+                      className={cn(
+                        'h-1.5 w-1.5 rounded-full',
+                        activeSession.status === 'running'
+                          ? 'bg-accent-olive animate-pulse'
+                          : 'bg-accent-amber'
+                      )}
+                    />
+                    {activeSession.status === 'running'
+                      ? t('sidebar.active')
+                      : t('sidebar.paused')}
+                  </>
+                ) : <span className="text-text-muted" aria-label={t('sidebar.noActiveSession')}>—</span>}
+              </span>
+            </div>
+
+            <div className="font-serif text-[25px] leading-tight font-normal text-[#f2ede4] tracking-normal my-1">
+              {activeSession ? formatTimer(liveElapsedMs) : '00:00'}
+            </div>
+
+            <p className="text-xs text-[#9c9a8e] truncate mt-0.5 font-normal">
+              {activeSession?.title || activeSessionProject?.name || t('sidebar.noActiveSession')}
+            </p>
+          </div>
+        ) : (
+          <Tooltip delayDuration={150}>
             <TooltipTrigger asChild>
               <button
-                onClick={toggleSidebar}
-                className="flex h-8 w-8 mx-auto items-center justify-center rounded text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors"
+                type="button"
+                onClick={() => navigate('/sessions')}
+                className="flex flex-col items-center justify-center h-10 w-10 mx-auto rounded-lg border border-border-subtle bg-bg-base/70 hover:bg-bg-elevated transition-colors text-accent-olive"
               >
-                <ChevronRight className="h-3.5 w-3.5" />
+                <Timer className="h-4 w-4" />
               </button>
             </TooltipTrigger>
-            <TooltipContent side="right">Expand sidebar</TooltipContent>
+            <TooltipContent side="right">
+              {t('sidebar.focus')}: {activeSession ? formatTimer(liveElapsedMs) : '00:00'}
+            </TooltipContent>
           </Tooltip>
+        )}
+
+        {/* User Profile */}
+        {!sidebarCollapsed ? (
+          <div className="flex items-center justify-between pt-0.5 px-0.5">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#20251b] border border-[#30372a] text-[#a1af8c] text-xs font-serif font-semibold shrink-0" aria-hidden="true">
+                А
+              </div>
+              <div className="min-w-0">
+                <div className="text-[13px] font-medium text-text-primary leading-tight truncate">
+                  Алекс Морган
+                </div>
+                <div className="text-xs text-[#828075] leading-none mt-1">
+                  {t('sidebar.proPlan')}
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => navigate('/settings')}
+              className="p-1.5 rounded-md text-[#828075] hover:text-text-primary hover:bg-bg-hover transition-colors"
+              title={t('nav.settings')}
+            >
+              <MoreVertical className="h-4 w-4" />
+            </button>
+          </div>
         ) : (
-          <div className="flex items-center justify-between px-2 py-1 text-[11px] text-text-muted">
-            <span className="flex items-center gap-1.5">
-              <span className="h-1.5 w-1.5 rounded-full bg-accent-green" />
-              IndexedDB Ready
-            </span>
-            <span className="font-mono text-[10px]">v1.0.0</span>
+          <div className="flex flex-col items-center gap-1.5 pt-1">
+            <button
+              type="button"
+              onClick={toggleSidebar}
+              className="flex h-8 w-8 items-center justify-center rounded text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors"
+              title={t('sidebar.expandSidebar')}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
           </div>
         )}
       </div>

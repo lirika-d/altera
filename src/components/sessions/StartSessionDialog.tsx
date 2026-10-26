@@ -21,22 +21,32 @@ import {
 import { useProjects } from '@/hooks/useProjects'
 import { useProjectTasks } from '@/hooks/useTasks'
 import { useActiveSession, useSessionActions } from '@/hooks/useSessions'
+import { useTranslation } from '@/i18n'
+import { SessionError } from '@/db/sessions'
 import { Timer, AlertTriangle, ArrowRight, CheckCircle2 } from 'lucide-react'
 
 interface StartSessionDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   initialProjectId?: string
+  initialTaskId?: string
+  initialTitle?: string
+  scheduledBlockId?: string
 }
 
 export function StartSessionDialog({
   open,
   onOpenChange,
   initialProjectId,
+  initialTaskId,
+  initialTitle,
+  scheduledBlockId,
 }: StartSessionDialogProps) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const allProjects = useProjects() || []
   const activeProjects = allProjects.filter((p) => p.status !== 'archived')
+  const firstActiveProjectId = activeProjects[0]?.id
   const activeSession = useActiveSession()
   const { start } = useSessionActions()
 
@@ -55,13 +65,16 @@ export function StartSessionDialog({
   React.useEffect(() => {
     if (open) {
       setErrorMessage(null)
+      setTitle(initialTitle ?? '')
+      setObjective('')
+      setTaskId(initialTaskId || 'none')
       if (initialProjectId) {
         setProjectId(initialProjectId)
-      } else if (activeProjects.length > 0) {
-        setProjectId((prev) => prev || activeProjects[0].id)
+      } else if (firstActiveProjectId) {
+        setProjectId((prev) => prev || firstActiveProjectId)
       }
     }
-  }, [open, initialProjectId, activeProjects])
+  }, [open, initialProjectId, initialTaskId, initialTitle, firstActiveProjectId])
 
   // Update default title when project changes if user hasn't typed custom title
   const selectedProject = allProjects.find((p) => p.id === projectId)
@@ -88,11 +101,11 @@ export function StartSessionDialog({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!projectId) {
-      setErrorMessage('Please select a project for this session.')
+      setErrorMessage(t('sessions.dialogs.projectRequired'))
       return
     }
     if (!title.trim()) {
-      setErrorMessage('Please provide a session title.')
+      setErrorMessage(t('sessions.dialogs.titleRequired'))
       return
     }
 
@@ -104,6 +117,7 @@ export function StartSessionDialog({
         title: title.trim(),
         taskId: taskId && taskId !== 'none' ? taskId : undefined,
         objective: objective.trim() || undefined,
+        scheduledBlockId,
       })
       onOpenChange(false)
       // Reset form
@@ -111,8 +125,11 @@ export function StartSessionDialog({
       setObjective('')
       setTaskId('none')
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to start session'
-      setErrorMessage(msg)
+      setErrorMessage(
+        err instanceof SessionError && err.code === 'WORK_BLOCK_NOT_PLANNED'
+          ? t('sessions.dialogs.blockNotPlanned')
+          : t('sessions.dialogs.startFailed')
+      )
     } finally {
       setIsSubmitting(false)
     }
@@ -124,55 +141,54 @@ export function StartSessionDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md bg-[#141412] border-[#242420] text-[#eceeed]">
         <form onSubmit={handleSubmit} className="space-y-4">
           <DialogHeader>
-            <div className="flex items-center gap-2">
-              <div className="flex h-7 w-7 items-center justify-center rounded-md bg-accent-blue/15 text-accent-blue border border-accent-blue/20">
-                <Timer className="h-3.5 w-3.5" />
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#8a9e6b]/15 text-[#8a9e6b] border border-[#8a9e6b]/20">
+                <Timer className="h-4 w-4" />
               </div>
-              <DialogTitle>Start Work Session</DialogTitle>
+              <DialogTitle className="font-serif text-lg text-[#eceeed]">
+                {t('sessions.dialogs.startTitle')}
+              </DialogTitle>
             </div>
-            <DialogDescription>
-              Launch a focused, distraction-free work block linked to a project.
+            <DialogDescription className="text-xs text-[#9ca3af]">
+              {t('sessions.dialogs.startDesc')}
             </DialogDescription>
           </DialogHeader>
 
           {/* Warning if a session is already active */}
           {activeSession && (
-            <div className="p-3 rounded-lg border border-accent-amber/30 bg-accent-amber/10 space-y-2">
+            <div className="p-3.5 rounded-xl border border-amber-500/30 bg-amber-500/10 space-y-2">
               <div className="flex items-start gap-2">
-                <AlertTriangle className="h-4 w-4 text-accent-amber shrink-0 mt-0.5" />
-                <div className="text-xs text-text-primary leading-relaxed">
-                  <span className="font-semibold text-accent-amber">
-                    Active session in progress:
+                <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+                <div className="text-xs text-[#eceeed] leading-relaxed">
+                  <span className="font-semibold text-amber-400">
+                    {t('sessions.dialogs.activeSessionInProgress')}
                   </span>{' '}
-                  <span className="font-medium text-text-primary">
+                  <span className="font-medium text-[#eceeed]">
                     {activeSession.title}
                   </span>{' '}
                   ({activeProjectOfSession?.name || 'Project'},{' '}
-                  <span className="capitalize text-accent-amber font-mono font-medium">
+                  <span className="capitalize text-amber-400 font-mono font-medium">
                     {activeSession.status}
                   </span>
                   ).
                 </div>
               </div>
-              <p className="text-[11px] text-text-secondary pl-6">
-                ALTERA enforces single-session focus to prevent fragmented tracking.
-                Finish or resume your current session before starting a new one.
-              </p>
+              <p className="text-[11px] text-[#9ca3af] pl-6">{t('sessions.dialogs.singleSessionPolicy')}</p>
               <div className="pl-6 pt-1">
                 <Button
                   type="button"
                   size="xs"
-                  variant="secondary"
+                  variant="outline"
                   onClick={() => {
                     onOpenChange(false)
                     navigate('/sessions')
                   }}
-                  className="gap-1 text-[11px]"
+                  className="gap-1 text-xs border-[#2e2e28] bg-[#1a1a17] text-[#eceeed]"
                 >
-                  <span>View Active Session</span>
+                  <span>{t('sessions.dialogs.viewActiveSession')}</span>
                   <ArrowRight className="h-3 w-3" />
                 </Button>
               </div>
@@ -180,7 +196,7 @@ export function StartSessionDialog({
           )}
 
           {errorMessage && (
-            <div className="p-2.5 rounded-md border border-accent-red/30 bg-accent-red/10 text-accent-red text-xs">
+            <div className="p-3 rounded-lg border border-red-500/30 bg-red-950/20 text-red-300 text-xs">
               {errorMessage}
             </div>
           )}
@@ -189,23 +205,23 @@ export function StartSessionDialog({
             <>
               {/* Project Picker */}
               <div className="space-y-1.5">
-                <label className="text-[11px] font-medium text-text-secondary">
-                  Target Project <span className="text-accent-red">*</span>
+                <label id="start-session-project-label" className="text-xs font-medium text-[#9ca3af]">
+                  {t('sessions.dialogs.targetProject')} <span className="text-red-400">*</span>
                 </label>
                 {activeProjects.length > 0 ? (
                   <Select value={projectId} onValueChange={handleProjectChange}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a project..." />
+                    <SelectTrigger id="start-session-project" aria-labelledby="start-session-project-label" className="bg-[#0e0e0d] border-[#242420] text-[#eceeed]">
+                      <SelectValue placeholder={t('sessions.dialogs.selectProject')} />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="bg-[#141412] border-[#242420] text-[#eceeed]">
                       {activeProjects.map((proj) => (
                         <SelectItem key={proj.id} value={proj.id}>
                           <div className="flex items-center gap-2">
                             <span>{proj.icon || '📁'}</span>
-                            <span className="font-mono text-[10px] text-text-muted">
+                            <span className="font-mono text-[10px] text-[#8a9e6b] font-medium">
                               {proj.identifier}
                             </span>
-                            <span className="font-medium text-text-primary truncate">
+                            <span className="font-medium text-[#eceeed] truncate">
                               {proj.name}
                             </span>
                           </div>
@@ -214,21 +230,24 @@ export function StartSessionDialog({
                     </SelectContent>
                   </Select>
                 ) : (
-                  <div className="text-xs text-text-muted p-2 rounded border border-border-subtle bg-bg-base">
-                    No projects available. Create a project first.
+                  <div className="text-xs text-[#6b7280] p-2.5 rounded-lg border border-[#242420] bg-[#0e0e0d]">
+                    {t('sessions.dialogs.noProjects')}
                   </div>
                 )}
               </div>
 
               {/* Session Title */}
               <div className="space-y-1.5">
-                <label className="text-[11px] font-medium text-text-secondary">
-                  Session Title <span className="text-accent-red">*</span>
+                <label htmlFor="start-session-title" className="text-xs font-medium text-[#9ca3af]">
+                  {t('sessions.dialogs.sessionTitle')} <span className="text-red-400">*</span>
                 </label>
                 <Input
-                  placeholder="e.g. Core Engine Performance Sprint"
+                  id="start-session-title"
+                  name="title"
+                  placeholder={t('sessions.dialogs.sessionTitlePlaceholder')}
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
+                  className="bg-[#0e0e0d] border-[#242420] text-[#eceeed] focus-visible:border-[#8a9e6b]"
                   required
                 />
               </div>
@@ -236,27 +255,27 @@ export function StartSessionDialog({
               {/* Related Task Selection (Optional) */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <label className="text-[11px] font-medium text-text-secondary">
-                    Focus Task <span className="text-text-muted">(Optional)</span>
+                  <label id="start-session-task-label" className="text-xs font-medium text-[#9ca3af]">
+                    {t('sessions.dialogs.focusTask')} <span className="text-[#6b7280]">({t('sessions.dialogs.optional')})</span>
                   </label>
                   {openTasks.length > 0 && (
-                    <span className="text-[10px] text-text-muted font-mono">
-                      {openTasks.length} open
+                    <span className="text-[10px] text-[#8a9e6b] font-mono">
+                      {t('sessions.dialogs.openTasksCount', { count: openTasks.length })}
                     </span>
                   )}
                 </div>
                 <Select value={taskId} onValueChange={setTaskId} disabled={!projectId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="None (General Project Work)" />
+                  <SelectTrigger id="start-session-task" aria-labelledby="start-session-task-label" className="bg-[#0e0e0d] border-[#242420] text-[#eceeed]">
+                    <SelectValue placeholder={t('sessions.dialogs.generalProjectWork')} />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-[#141412] border-[#242420] text-[#eceeed]">
                     <SelectItem value="none">
-                      <span className="text-text-muted">None (General Project Work)</span>
+                      <span className="text-[#6b7280]">{t('sessions.dialogs.generalProjectWork')}</span>
                     </SelectItem>
                     {openTasks.map((t) => (
                       <SelectItem key={t.id} value={t.id}>
                         <div className="flex items-center gap-2 truncate">
-                          <CheckCircle2 className="h-3 w-3 text-text-muted shrink-0" />
+                          <CheckCircle2 className="h-3.5 w-3.5 text-[#8a9e6b] shrink-0" />
                           <span className="truncate">{t.title}</span>
                         </div>
                       </SelectItem>
@@ -267,35 +286,40 @@ export function StartSessionDialog({
 
               {/* Current Objective (Optional) */}
               <div className="space-y-1.5">
-                <label className="text-[11px] font-medium text-text-secondary">
-                  Immediate Objective <span className="text-text-muted">(Optional)</span>
+                <label htmlFor="start-session-objective" className="text-xs font-medium text-[#9ca3af]">
+                  {t('sessions.dialogs.immediateObjective')} <span className="text-[#6b7280]">({t('sessions.dialogs.optional')})</span>
                 </label>
                 <Textarea
-                  placeholder="What is the concrete goal for this focus block?"
+                  id="start-session-objective"
+                  name="objective"
+                  placeholder={t('sessions.dialogs.objectivePlaceholder')}
                   rows={2}
                   value={objective}
                   onChange={(e) => setObjective(e.target.value)}
+                  className="bg-[#0e0e0d] border-[#242420] text-[#eceeed] focus-visible:border-[#8a9e6b]"
                 />
               </div>
             </>
           )}
 
-          <DialogFooter>
+          <DialogFooter className="gap-2 sm:gap-0 pt-2 border-t border-[#242420]">
             <Button
               type="button"
               variant="ghost"
               onClick={() => onOpenChange(false)}
+              className="text-[#9ca3af] hover:text-[#eceeed]"
             >
-              Cancel
+              {t('sessions.dialogs.cancel')}
             </Button>
             {!activeSession && (
               <Button
                 type="submit"
+                variant="olive"
                 disabled={!projectId || !title.trim() || isSubmitting}
                 className="gap-1.5 shadow-sm"
               >
                 <Timer className="h-3.5 w-3.5" />
-                <span>{isSubmitting ? 'Starting…' : 'Start Focus Session'}</span>
+                <span>{isSubmitting ? t('sessions.dialogs.starting') : t('sessions.dialogs.startFocus')}</span>
               </Button>
             )}
           </DialogFooter>

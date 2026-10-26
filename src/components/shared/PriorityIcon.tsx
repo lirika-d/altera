@@ -1,6 +1,7 @@
 import { AlertCircle, SignalHigh, SignalMedium, SignalLow, Minus } from 'lucide-react'
 import type { Priority } from '@/types'
 import { cn } from '@/lib/utils'
+import { useTranslation } from '@/i18n'
 
 interface PriorityIconProps {
   priority: Priority
@@ -9,6 +10,7 @@ interface PriorityIconProps {
 }
 
 export function PriorityIcon({ priority, className, showLabel = false }: PriorityIconProps) {
+  const { tx } = useTranslation()
   const config: Record<
     Priority,
     { label: string; icon: React.ReactNode; colorClass: string }
@@ -41,14 +43,15 @@ export function PriorityIcon({ priority, className, showLabel = false }: Priorit
   }
 
   const { label, icon, colorClass } = config[priority] || config.none
+  const translatedLabel = tx(label)
 
   return (
     <span
       className={cn('inline-flex items-center gap-1 shrink-0', colorClass, className)}
-      title={`Priority: ${label}`}
+      title={tx('Priority') + ': ' + translatedLabel}
     >
       {icon}
-      {showLabel && <span className="text-[11px] font-medium">{label}</span>}
+      {showLabel && <span className="text-[11px] font-medium">{translatedLabel}</span>}
     </span>
   )
 }

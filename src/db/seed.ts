@@ -1,5 +1,15 @@
 import { db, generateId } from './db'
-import type { Project, Task, Activity, Session } from '@/types'
+import type {
+  Project,
+  Task,
+  Activity,
+  Session,
+  Note,
+  Resource,
+  Tag,
+  TagAssignment,
+  EntityLink,
+} from '@/types'
 
 export async function seedDatabase(): Promise<void> {
   const now = new Date()
@@ -7,12 +17,37 @@ export async function seedDatabase(): Promise<void> {
   const hoursAgo = (hours: number) => new Date(now.getTime() - hours * 60 * 60 * 1000)
   const daysAgo = (days: number) => new Date(now.getTime() - days * 24 * 60 * 60 * 1000)
 
-  await db.transaction('rw', db.projects, db.tasks, db.activities, db.sessions, async () => {
-    await db.projects.clear()
-    await db.tasks.clear()
-    await db.activities.clear()
-    // Clear sessions so the demo always starts clean
-    await db.sessions.clear()
+  await db.transaction(
+    'rw',
+    [
+      db.projects,
+      db.tasks,
+      db.activities,
+      db.sessions,
+      db.notes,
+      db.resources,
+      db.attachments,
+      db.tags,
+      db.tagAssignments,
+      db.entityLinks,
+      db.scheduledWorkBlocks,
+      db.workflowTemplates,
+      db.metadata,
+    ],
+    async () => {
+      await db.metadata.put({ key: 'initialized', value: true })
+      await db.projects.clear()
+      await db.tasks.clear()
+      await db.activities.clear()
+      await db.sessions.clear()
+      await db.notes.clear()
+      await db.resources.clear()
+      await db.attachments.clear()
+      await db.tags.clear()
+      await db.tagAssignments.clear()
+      await db.entityLinks.clear()
+      await db.scheduledWorkBlocks.clear()
+      await db.workflowTemplates.clear()
 
     const projects: Project[] = [
       {
@@ -741,12 +776,497 @@ export async function seedDatabase(): Promise<void> {
     ]
 
     await db.sessions.bulkAdd(sessions)
+
+    // ── Knowledge Hub Seed Data ──────────────────────────────────────────
+    const tags: Tag[] = [
+      {
+        id: 'tag-arch',
+        name: 'architecture',
+        normalizedName: 'architecture',
+        color: '#3b82f6',
+        createdAt: daysAgo(14),
+      },
+      {
+        id: 'tag-db',
+        name: 'database',
+        normalizedName: 'database',
+        color: '#22c55e',
+        createdAt: daysAgo(14),
+      },
+      {
+        id: 'tag-front',
+        name: 'frontend',
+        normalizedName: 'frontend',
+        color: '#8b5cf6',
+        createdAt: daysAgo(10),
+      },
+      {
+        id: 'tag-specs',
+        name: 'specs',
+        normalizedName: 'specs',
+        color: '#f59e0b',
+        createdAt: daysAgo(8),
+      },
+      {
+        id: 'tag-research',
+        name: 'research',
+        normalizedName: 'research',
+        color: '#06b6d4',
+        createdAt: daysAgo(5),
+      },
+    ]
+
+    await db.tags.bulkAdd(tags)
+
+    const notes: Note[] = [
+      {
+        id: 'note-1',
+        title: 'ALTERA Architecture & Local-First Philosophy',
+        projectId: 'proj-1',
+        isFavorite: true,
+        revision: 1,
+        createdAt: daysAgo(12),
+        updatedAt: hoursAgo(2),
+        contentJSON: JSON.stringify({
+          type: 'doc',
+          content: [
+            {
+              type: 'heading',
+              attrs: { level: 1 },
+              content: [{ type: 'text', text: 'ALTERA Architecture & Local-First Philosophy' }],
+            },
+            {
+              type: 'paragraph',
+              content: [
+                { type: 'text', text: 'ALTERA is architected from the ground up as a ' },
+                { type: 'text', marks: [{ type: 'bold' }], text: 'local-first' },
+                {
+                  type: 'text',
+                  text: ' personal productivity system. All primary data structures live inside client-side IndexedDB, offering sub-millisecond query responses and complete offline autonomy.',
+                },
+              ],
+            },
+            {
+              type: 'heading',
+              attrs: { level: 2 },
+              content: [{ type: 'text', text: 'Core Principles' }],
+            },
+            {
+              type: 'bulletList',
+              content: [
+                {
+                  type: 'listItem',
+                  content: [
+                    {
+                      type: 'paragraph',
+                      content: [
+                        { type: 'text', text: 'Zero-latency UI updates powered by Dexie live queries.' },
+                      ],
+                    },
+                  ],
+                },
+                {
+                  type: 'listItem',
+                  content: [
+                    {
+                      type: 'paragraph',
+                      content: [
+                        {
+                          type: 'text',
+                          text: 'Seamless continuity across work sessions and uninterrupted offline workflow.',
+                        },
+                      ],
+                    },
+                  ],
+                },
+                {
+                  type: 'listItem',
+                  content: [
+                    {
+                      type: 'paragraph',
+                      content: [
+                        {
+                          type: 'text',
+                          text: 'Strict client-side data sovereignty without external telemetry or mandatory accounts.',
+                        },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+            {
+              type: 'blockquote',
+              content: [
+                {
+                  type: 'paragraph',
+                  content: [
+                    {
+                      type: 'text',
+                      text: 'The fastest request is the one that never touches the network.',
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        }),
+        plainText:
+          'ALTERA Architecture & Local-First Philosophy\n\nALTERA is architected from the ground up as a local-first personal productivity system. All primary data structures live inside client-side IndexedDB, offering sub-millisecond query responses and complete offline autonomy.\n\nCore Principles:\n- Zero-latency UI updates powered by Dexie live queries.\n- Seamless continuity across work sessions and uninterrupted offline workflow.\n- Strict client-side data sovereignty without external telemetry or mandatory accounts.\n\n"The fastest request is the one that never touches the network."',
+      },
+      {
+        id: 'note-2',
+        title: 'Dexie.js v3 Schema & Transaction Guidelines',
+        projectId: 'proj-1',
+        isFavorite: true,
+        revision: 1,
+        createdAt: daysAgo(6),
+        updatedAt: hoursAgo(4),
+        contentJSON: JSON.stringify({
+          type: 'doc',
+          content: [
+            {
+              type: 'heading',
+              attrs: { level: 1 },
+              content: [{ type: 'text', text: 'Dexie.js v3 Schema & Transaction Guidelines' }],
+            },
+            {
+              type: 'paragraph',
+              content: [
+                {
+                  type: 'text',
+                  text: 'IndexedDB migrations must remain non-destructive across versions. Version 3 expands ALTERA with dedicated stores for notes, resources, attachments, tags, tagAssignments, and entityLinks.',
+                },
+              ],
+            },
+            {
+              type: 'codeBlock',
+              attrs: { language: 'typescript' },
+              content: [
+                {
+                  type: 'text',
+                  text: "export async function safeKnowledgeTransaction<T>(fn: () => Promise<T>): Promise<T> {\n  return db.transaction('rw', [db.notes, db.tags, db.tagAssignments, db.entityLinks], fn)\n}",
+                },
+              ],
+            },
+            {
+              type: 'heading',
+              attrs: { level: 2 },
+              content: [{ type: 'text', text: 'Migration Checklist' }],
+            },
+            {
+              type: 'taskList',
+              content: [
+                {
+                  type: 'taskItem',
+                  attrs: { checked: true },
+                  content: [
+                    {
+                      type: 'paragraph',
+                      content: [
+                        {
+                          type: 'text',
+                          text: 'Preserve v1 and v2 Dexie store definitions without modification',
+                        },
+                      ],
+                    },
+                  ],
+                },
+                {
+                  type: 'taskItem',
+                  attrs: { checked: true },
+                  content: [
+                    {
+                      type: 'paragraph',
+                      content: [
+                        {
+                          type: 'text',
+                          text: 'Define compound indexes for bidirectional relationship queries',
+                        },
+                      ],
+                    },
+                  ],
+                },
+                {
+                  type: 'taskItem',
+                  attrs: { checked: false },
+                  content: [
+                    {
+                      type: 'paragraph',
+                      content: [
+                        {
+                          type: 'text',
+                          text: 'Verify export/import round-trip with Blob attachments',
+                        },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        }),
+        plainText:
+          'Dexie.js v3 Schema & Transaction Guidelines\n\nIndexedDB migrations must remain non-destructive across versions. Version 3 expands ALTERA with dedicated stores for notes, resources, attachments, tags, tagAssignments, and entityLinks.\n\nMigration Checklist:\n[x] Preserve v1 and v2 Dexie store definitions without modification\n[x] Define compound indexes for bidirectional relationship queries\n[ ] Verify export/import round-trip with Blob attachments',
+      },
+      {
+        id: 'note-3',
+        title: 'Marketing Site Styleguide & Motion Tokens',
+        projectId: 'proj-2',
+        isFavorite: false,
+        revision: 1,
+        createdAt: daysAgo(4),
+        updatedAt: hoursAgo(6),
+        contentJSON: JSON.stringify({
+          type: 'doc',
+          content: [
+            {
+              type: 'heading',
+              attrs: { level: 1 },
+              content: [{ type: 'text', text: 'Marketing Site Styleguide & Motion Tokens' }],
+            },
+            {
+              type: 'paragraph',
+              content: [
+                {
+                  type: 'text',
+                  text: 'Visual guidelines for the dark aesthetic of the ALTERA landing experience. High contrast monochrome palette with purposeful vibrant accent highlights.',
+                },
+              ],
+            },
+            {
+              type: 'bulletList',
+              content: [
+                {
+                  type: 'listItem',
+                  content: [
+                    {
+                      type: 'paragraph',
+                      content: [{ type: 'text', text: 'Base surface: #0d0d0f (Pure dark charcoal)' }],
+                    },
+                  ],
+                },
+                {
+                  type: 'listItem',
+                  content: [
+                    {
+                      type: 'paragraph',
+                      content: [{ type: 'text', text: 'Cards elevated: #18181b with 1px #2a2a2d border' }],
+                    },
+                  ],
+                },
+                {
+                  type: 'listItem',
+                  content: [
+                    {
+                      type: 'paragraph',
+                      content: [
+                        { type: 'text', text: 'Spring animations: 180ms cubic-bezier(0.16, 1, 0.3, 1)' },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        }),
+        plainText:
+          'Marketing Site Styleguide & Motion Tokens\n\nVisual guidelines for the dark aesthetic of the ALTERA landing experience. High contrast monochrome palette with purposeful vibrant accent highlights.\n- Base surface: #0d0d0f\n- Cards elevated: #18181b\n- Spring animations: 180ms ease-out',
+      },
+      {
+        id: 'note-4',
+        title: 'Onboarding Flow Friction Analysis',
+        projectId: 'proj-5',
+        isFavorite: false,
+        revision: 1,
+        createdAt: daysAgo(2),
+        updatedAt: hoursAgo(8),
+        contentJSON: JSON.stringify({
+          type: 'doc',
+          content: [
+            {
+              type: 'heading',
+              attrs: { level: 1 },
+              content: [{ type: 'text', text: 'Onboarding Flow Friction Analysis' }],
+            },
+            {
+              type: 'paragraph',
+              content: [
+                {
+                  type: 'text',
+                  text: 'Summary of user testing sessions evaluating time-to-first-project creation and keyboard shortcut discoverability.',
+                },
+              ],
+            },
+            {
+              type: 'taskList',
+              content: [
+                {
+                  type: 'taskItem',
+                  attrs: { checked: true },
+                  content: [
+                    {
+                      type: 'paragraph',
+                      content: [{ type: 'text', text: 'Evaluate friction during template preselection' }],
+                    },
+                  ],
+                },
+                {
+                  type: 'taskItem',
+                  attrs: { checked: true },
+                  content: [
+                    {
+                      type: 'paragraph',
+                      content: [{ type: 'text', text: 'Provide clear visual feedback when next action is set' }],
+                    },
+                  ],
+                },
+                {
+                  type: 'taskItem',
+                  attrs: { checked: false },
+                  content: [
+                    {
+                      type: 'paragraph',
+                      content: [{ type: 'text', text: 'Add tooltip hints for ⌘K and / command palette' }],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        }),
+        plainText:
+          'Onboarding Flow Friction Analysis\n\nSummary of user testing sessions evaluating time-to-first-project creation and keyboard shortcut discoverability.\n[x] Evaluate friction during template preselection\n[x] Provide clear visual feedback when next action is set\n[ ] Add tooltip hints for ⌘K and / command palette',
+      },
+    ]
+
+    await db.notes.bulkAdd(notes)
+
+    const resources: Resource[] = [
+      {
+        id: 'res-1',
+        type: 'link',
+        title: 'Dexie.js Official Documentation',
+        description: 'Reactive IndexedDB wrapper API reference, queries, and transaction best practices.',
+        url: 'https://dexie.org/docs/',
+        projectId: 'proj-1',
+        isFavorite: true,
+        createdAt: daysAgo(10),
+        updatedAt: daysAgo(5),
+      },
+      {
+        id: 'res-2',
+        type: 'link',
+        title: 'Tailwind CSS Documentation',
+        description: 'Utility-first CSS framework class and customization guides.',
+        url: 'https://tailwindcss.com/docs',
+        projectId: 'proj-2',
+        isFavorite: false,
+        createdAt: daysAgo(8),
+        updatedAt: daysAgo(3),
+      },
+      {
+        id: 'res-3',
+        type: 'snippet',
+        title: 'Debounced Autosave Hook',
+        description: 'Custom React hook for debouncing note editor persistence with revision guards.',
+        snippetContent: `import * as React from 'react'\n\nexport function useDebounce<T>(value: T, delay: number): T {\n  const [debouncedValue, setDebouncedValue] = React.useState(value)\n  React.useEffect(() => {\n    const handler = setTimeout(() => setDebouncedValue(value), delay)\n    return () => clearTimeout(handler)\n  }, [value, delay])\n  return debouncedValue\n}`,
+        language: 'typescript',
+        projectId: 'proj-1',
+        isFavorite: true,
+        createdAt: daysAgo(6),
+        updatedAt: daysAgo(2),
+      },
+      {
+        id: 'res-4',
+        type: 'snippet',
+        title: 'Sanitize Safe Link Protocol',
+        description: 'Guards against javascript: and data: XSS link payloads.',
+        snippetContent: `export function isSafeUrl(rawUrl: string): boolean {\n  try {\n    const parsed = new URL(rawUrl, 'https://altera.local')\n    return ['http:', 'https:', 'mailto:'].includes(parsed.protocol)\n  } catch {\n    return false\n  }\n}`,
+        language: 'typescript',
+        projectId: 'proj-1',
+        isFavorite: false,
+        createdAt: daysAgo(4),
+        updatedAt: daysAgo(1),
+      },
+    ]
+
+    await db.resources.bulkAdd(resources)
+
+    const tagAssignments: TagAssignment[] = [
+      { id: 'ta-1', tagId: 'tag-arch', entityType: 'note', entityId: 'note-1' },
+      { id: 'ta-2', tagId: 'tag-specs', entityType: 'note', entityId: 'note-1' },
+      { id: 'ta-3', tagId: 'tag-db', entityType: 'note', entityId: 'note-2' },
+      { id: 'ta-4', tagId: 'tag-arch', entityType: 'note', entityId: 'note-2' },
+      { id: 'ta-5', tagId: 'tag-front', entityType: 'note', entityId: 'note-3' },
+      { id: 'ta-6', tagId: 'tag-research', entityType: 'note', entityId: 'note-4' },
+      { id: 'ta-7', tagId: 'tag-db', entityType: 'resource', entityId: 'res-1' },
+      { id: 'ta-8', tagId: 'tag-front', entityType: 'resource', entityId: 'res-3' },
+    ]
+
+    await db.tagAssignments.bulkAdd(tagAssignments)
+
+    const entityLinks: EntityLink[] = [
+      {
+        id: 'el-1',
+        sourceType: 'note',
+        sourceId: 'note-1',
+        targetType: 'project',
+        targetId: 'proj-1',
+        createdAt: daysAgo(12),
+      },
+      {
+        id: 'el-2',
+        sourceType: 'note',
+        sourceId: 'note-2',
+        targetType: 'project',
+        targetId: 'proj-1',
+        createdAt: daysAgo(6),
+      },
+      {
+        id: 'el-3',
+        sourceType: 'note',
+        sourceId: 'note-3',
+        targetType: 'project',
+        targetId: 'proj-2',
+        createdAt: daysAgo(4),
+      },
+      {
+        id: 'el-4',
+        sourceType: 'note',
+        sourceId: 'note-4',
+        targetType: 'project',
+        targetId: 'proj-5',
+        createdAt: daysAgo(2),
+      },
+      {
+        id: 'el-5',
+        sourceType: 'resource',
+        sourceId: 'res-1',
+        targetType: 'project',
+        targetId: 'proj-1',
+        createdAt: daysAgo(10),
+      },
+      {
+        id: 'el-6',
+        sourceType: 'resource',
+        sourceId: 'res-3',
+        targetType: 'project',
+        targetId: 'proj-1',
+        createdAt: daysAgo(6),
+      },
+      {
+        id: 'el-7',
+        sourceType: 'note',
+        sourceId: 'note-2',
+        targetType: 'resource',
+        targetId: 'res-1',
+        createdAt: daysAgo(5),
+      },
+    ]
+
+    await db.entityLinks.bulkAdd(entityLinks)
   })
 }
 
-export async function ensureDatabaseSeeded(): Promise<void> {
-  const count = await db.projects.count()
-  if (count === 0) {
-    await seedDatabase()
-  }
-}
+export { ensureDatabaseSeeded } from './initialization'

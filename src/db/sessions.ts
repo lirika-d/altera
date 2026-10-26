@@ -29,6 +29,10 @@ type SessionErrorCode =
   | 'PROJECT_NOT_FOUND'
   | 'TASK_NOT_FOUND'
   | 'TASK_PROJECT_MISMATCH'
+  | 'WORK_BLOCK_NOT_FOUND'
+  | 'WORK_BLOCK_NOT_PLANNED'
+  | 'WORK_BLOCK_PROJECT_MISMATCH'
+  | 'WORK_BLOCK_TASK_MISMATCH'
   | 'ALREADY_COMPLETED'
 
 // ─── Errors ──────────────────────────────────────────────────────────────────
@@ -91,7 +95,7 @@ export async function startSession(
 ): Promise<Session> {
   // IndexedDB serializes overlapping read/write transactions for the same
   // object stores, so the invariant check and insert must live together.
-  return db.transaction('rw', db.projects, db.tasks, db.sessions, db.activities, async () => {
+  return db.transaction('rw', db.projects, db.tasks, db.sessions, db.activities, db.scheduledWorkBlocks, async () => {
     const project = await db.projects.get(projectId)
     if (!project) {
       throw new SessionError(`Project "${projectId}" not found`, 'PROJECT_NOT_FOUND')
@@ -110,6 +114,22 @@ export async function startSession(
       }
     }
 
+    if (options.scheduledBlockId) {
+      const block = await db.scheduledWorkBlocks.get(options.scheduledBlockId)
+      if (!block) {
+        throw new SessionError(`Work block "${options.scheduledBlockId}" not found`, 'WORK_BLOCK_NOT_FOUND')
+      }
+      if (block.status !== 'planned') {
+        throw new SessionError('A session can only be started from a planned work block', 'WORK_BLOCK_NOT_PLANNED')
+      }
+      if (block.projectId !== projectId) {
+        throw new SessionError('Work block belongs to a different project', 'WORK_BLOCK_PROJECT_MISMATCH')
+      }
+      if (block.taskId !== options.taskId) {
+        throw new SessionError('Work block task does not match the selected task', 'WORK_BLOCK_TASK_MISMATCH')
+      }
+    }
+
     const existingActive = await findActiveSession()
     if (existingActive) {
       throw new SessionError(
@@ -123,6 +143,7 @@ export async function startSession(
       id: generateId(),
       projectId,
       taskId: options.taskId,
+      scheduledBlockId: options.scheduledBlockId,
       title: options.title ?? `Session — ${project.name}`,
       objective: options.objective ?? '',
       status: 'running',
@@ -349,9 +370,11 @@ export async function updateCompletedSession(
  * Delete a session from IndexedDB.
  */
 export async function deleteSession(sessionId: string): Promise<void> {
-  const session = await db.sessions.get(sessionId)
-  if (!session) return
-  await db.sessions.delete(sessionId)
+  await db.transaction('rw', db.sessions, db.tagAssignments, db.entityLinks, async () => {
+    await db.tagAssignments.filter(a => a.entityType === 'session' && a.entityId === sessionId).delete()
+    await db.entityLinks.filter(link => (link.sourceType === 'session' && link.sourceId === sessionId) || (link.targetType === 'session' && link.targetId === sessionId)).delete()
+    await db.sessions.delete(sessionId)
+  })
 }
 
 // ─── Queries ──────────────────────────────────────────────────────────────────
@@ -380,6 +403,14 @@ export async function getSessionsByProject(projectId: string): Promise<Session[]
   )
 }
 
+/** Returns actual sessions associated with one planned work block, newest first. */
+export async function getSessionsByScheduledBlock(blockId: string): Promise<Session[]> {
+  const sessions = await db.sessions.where('scheduledBlockId').equals(blockId).toArray()
+  return sessions.sort(
+    (a, b) => (timestampOf(b.startedAt) ?? 0) - (timestampOf(a.startedAt) ?? 0)
+  )
+}
+
 /** Return the N most recently updated sessions across all projects. */
 export async function getRecentSessions(limit = 10): Promise<Session[]> {
   const all = await db.sessions.toArray()
@@ -393,8 +424,10 @@ export async function getRecentSessions(limit = 10): Promise<Session[]> {
  * Only completed sessions contribute to duration averages.
  */
 export async function getSessionStatistics(): Promise<SessionStatistics> {
-  const all = await db.sessions.toArray()
-  const completed = all.filter((s) => s.status === 'completed')
+  const [totalSessions, completed] = await Promise.all([
+    db.sessions.count(),
+    db.sessions.where('status').equals('completed').toArray(),
+  ])
 
   const totalDurationMs = completed.reduce(
     (sum, s) => Math.min(Number.MAX_SAFE_INTEGER, sum + sanitizeDurationMs(s.accumulatedDurationMs)),
@@ -416,7 +449,7 @@ export async function getSessionStatistics(): Promise<SessionStatistics> {
   }
 
   return {
-    totalSessions: all.length,
+    totalSessions,
     completedSessions: completed.length,
     totalDurationMs,
     averageDurationMs:

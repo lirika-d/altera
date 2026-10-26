@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams, useLocation, Link } from 'react-router-dom'
 import {
   Target,
   Plus,
@@ -17,10 +17,16 @@ import {
   ArrowRight,
   ExternalLink,
   History,
+  BookOpen,
 } from 'lucide-react'
+import { useTranslation } from '@/i18n'
 import { useProject } from '@/hooks/useProjects'
 import { useProjectTasks, useProjectTaskStats } from '@/hooks/useTasks'
+import { useTaskScheduleSummaries } from '@/hooks/useTaskScheduleSummaries'
 import { useRecentActivity } from '@/hooks/useActivity'
+import { useKnowledgeCounts } from '@/hooks/useKnowledge'
+import { ProjectKnowledgeTab } from '@/components/knowledge/project'
+import { ProjectScheduleSection } from '@/components/calendar/ProjectScheduleSection'
 import {
   useProjectSessions,
   useProjectTotalDuration,
@@ -65,26 +71,40 @@ import {
 import type { ProjectStatus, Priority, TaskStatus, Session } from '@/types'
 import { cn } from '@/lib/utils'
 
-function formatTimeAgo(date?: Date | string): string {
-  if (!date) return 'Never'
+function formatTimeAgo(date: Date | string | undefined, lang: string): string {
+  if (!date) return lang === 'ru' ? 'Никогда' : 'Never'
   const diff = Date.now() - new Date(date).getTime()
   const minutes = Math.floor(diff / (1000 * 60))
+  if (lang === 'ru') {
+    if (minutes < 1) return 'только что'
+    if (minutes < 60) return `${minutes}м назад`
+    const hours = Math.floor(minutes / 60)
+    if (hours < 24) return `${hours}ч назад`
+    const days = Math.floor(hours / 24)
+    if (days === 1) return 'вчера'
+    return `${days}д назад`
+  }
   if (minutes < 1) return 'Just now'
   if (minutes < 60) return `${minutes}m ago`
   const hours = Math.floor(minutes / 60)
   if (hours < 24) return `${hours}h ago`
   const days = Math.floor(hours / 24)
   if (days === 1) return 'Yesterday'
-  if (days < 30) return `${days}d ago`
-  return new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  return `${days}d ago`
 }
 
 export function ProjectWorkspace() {
+  const { t, tx, i18n } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
+  const [searchParams, setSearchParams] = useSearchParams()
 
   const project = useProject(id)
-  const tasks = useProjectTasks(id) || []
+  const queriedTasks = useProjectTasks(id)
+  const tasks = queriedTasks ?? []
+  const taskScheduleSummaries = useTaskScheduleSummaries(tasks)
+  const taskIntentId = searchParams.get('task') || undefined
   const stats = useProjectTaskStats(id) || {
     total: 0,
     done: 0,
@@ -116,12 +136,48 @@ export function ProjectWorkspace() {
         await resume(activeSession.id)
       }
     } catch {
-      // useSessionActions keeps the error for inline display.
+      // useSessionActions keeps error state for inline display.
     }
   }
 
-  // Active workspace tab: 'tasks' | 'overview' | 'sessions'
-  const [activeTab, setActiveTab] = React.useState<'tasks' | 'overview' | 'sessions'>('tasks')
+  // Knowledge counts for this project
+  const knowledgeCounts = useKnowledgeCounts(id)
+  const totalKnowledgeCount = knowledgeCounts.notes + knowledgeCounts.resources
+
+  // Active workspace tab: 'tasks' | 'overview' | 'sessions' | 'knowledge'
+  const [activeTab, setActiveTab] = React.useState<
+    'tasks' | 'overview' | 'sessions' | 'knowledge'
+  >('tasks')
+  const [taskFilter, setTaskFilter] = React.useState<'all' | TaskStatus>('all')
+  const handledTaskIntentRef = React.useRef<string | null>(null)
+  const scrolledTaskIntentRef = React.useRef<string | null>(null)
+
+  React.useEffect(() => {
+    if (!taskIntentId || queriedTasks === undefined) return
+    const intentKey = `${location.key}:${id}:${taskIntentId}`
+    if (!queriedTasks.some((task) => task.id === taskIntentId)) {
+      const next = new URLSearchParams(searchParams)
+      next.delete('task')
+      setSearchParams(next, { replace: true })
+      return
+    }
+    if (handledTaskIntentRef.current === intentKey) return
+    handledTaskIntentRef.current = intentKey
+    setActiveTab('tasks')
+    setTaskFilter('all')
+  }, [id, location.key, queriedTasks, searchParams, setSearchParams, taskIntentId])
+
+  React.useEffect(() => {
+    if (!taskIntentId || activeTab !== 'tasks' || queriedTasks === undefined) return
+    const intentKey = `${location.key}:${id}:${taskIntentId}`
+    if (scrolledTaskIntentRef.current === intentKey) return
+    const taskExists = queriedTasks.some((task) => task.id === taskIntentId)
+    if (!taskExists) return
+    const element = document.getElementById(`task-${taskIntentId}`)
+    if (!element) return
+    scrolledTaskIntentRef.current = intentKey
+    element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [activeTab, id, location.key, queriedTasks, taskIntentId])
 
   // Next Action editable state
   const [nextActionValue, setNextActionValue] = React.useState('')
@@ -136,7 +192,6 @@ export function ProjectWorkspace() {
   // New task input state
   const [newTaskTitle, setNewTaskTitle] = React.useState('')
   const [newTaskPriority, setNewTaskPriority] = React.useState<Priority>('medium')
-  const [taskFilter, setTaskFilter] = React.useState<'all' | TaskStatus>('all')
 
   // Dialogs
   const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false)
@@ -144,7 +199,7 @@ export function ProjectWorkspace() {
   const [isStartSessionOpen, setIsStartSessionOpen] = React.useState(false)
   const [selectedSessionForDetail, setSelectedSessionForDetail] = React.useState<Session | null>(null)
 
-  // 1. Update lastVisitedAt on mount
+  // Update lastVisitedAt on mount
   React.useEffect(() => {
     if (id) {
       touchProject(id)
@@ -164,9 +219,9 @@ export function ProjectWorkspace() {
     return (
       <div className="p-12 max-w-xl mx-auto text-center space-y-4">
         <EmptyState
-          title="Project not found"
-          description="The requested project may have been deleted or the identifier is invalid."
-          actionLabel="Back to Projects"
+          title={t('workspace.notFound')}
+          description={t('workspace.notFoundDesc')}
+          actionLabel={t('workspace.backToProjects')}
           onAction={() => navigate('/projects')}
         />
       </div>
@@ -231,8 +286,9 @@ export function ProjectWorkspace() {
     try {
       await deleteProject(project.id)
       navigate('/projects')
-    } catch (error) {
-      setDeleteError(error instanceof Error ? error.message : 'Failed to delete project')
+    } catch {
+      console.error('Project deletion failed')
+      setDeleteError(t('projects.deleteFailed'))
     }
   }
 
@@ -241,41 +297,40 @@ export function ProjectWorkspace() {
     taskFilter === 'all'
       ? tasks
       : tasks.filter((t) => t.status === taskFilter)
-
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-6">
-      {/* Top Navigation Backlink */}
+    <div className="p-8 max-w-5xl mx-auto space-y-6">
+      {/* ─── Top Navigation Breadcrumbs & Actions ─── */}
       <div className="flex items-center justify-between">
         <Link
           to="/projects"
           className="inline-flex items-center gap-1.5 text-xs text-text-muted hover:text-text-primary transition-colors"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
-          <span>All Projects</span>
+          <span>{t('workspace.backToProjects')}</span>
         </Link>
 
         <Button
           variant="ghost"
           size="xs"
           onClick={() => setShowDeleteConfirm(true)}
-          className="text-text-muted hover:text-accent-red hover:bg-accent-red/10 gap-1"
+          className="text-text-muted hover:text-accent-red hover:bg-accent-red/10 gap-1 text-xs"
         >
           <Trash2 className="h-3.5 w-3.5" />
-          <span>Delete Project</span>
+          <span>{t('projects.actions.delete')}</span>
         </Button>
       </div>
 
-      {/* Project Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 p-5 rounded-xl border border-border bg-bg-surface shadow-sm">
-        <div className="space-y-2 flex-1 min-w-0">
-          <div className="flex items-center gap-2">
+      {/* ─── Project Header Banner (Stitch Refined) ─── */}
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-5 p-6 rounded-xl border border-border bg-bg-surface shadow-xs">
+        <div className="space-y-3 flex-1 min-w-0">
+          <div className="flex items-center gap-2.5">
             <span
-              className="flex h-7 w-7 items-center justify-center rounded text-base bg-bg-base border border-border shrink-0 select-none"
-              style={{ borderColor: `${project.color}40` }}
+              className="flex h-8 w-8 items-center justify-center rounded-[5px] text-base bg-bg-base border border-border-subtle shrink-0 select-none"
+              style={{ borderColor: `${project.color}50` }}
             >
-              {project.icon || '⚡'}
+              {project.icon || '📁'}
             </span>
-            <span className="font-mono text-xs font-semibold text-text-secondary tracking-wider">
+            <span className="font-mono text-xs font-semibold text-accent-olive tracking-wider">
               {project.identifier}
             </span>
           </div>
@@ -295,84 +350,84 @@ export function ProjectWorkspace() {
                   setIsEditingTitle(false)
                 }
               }}
-              className="text-xl font-bold bg-bg-base text-text-primary border border-accent-blue rounded px-2 py-0.5 w-full focus:outline-none"
+              className="font-serif text-2xl md:text-3xl font-medium bg-bg-base text-text-primary border border-accent-olive/70 rounded px-2 py-0.5 w-full focus:outline-none"
             />
           ) : (
             <h1
               onClick={() => setIsEditingTitle(true)}
-              className="text-xl font-bold text-text-primary hover:text-accent-blue cursor-pointer transition-colors"
-              title="Click to rename"
+              className="font-serif text-2xl md:text-3xl font-medium text-text-primary hover:text-accent-olive cursor-pointer transition-colors leading-tight"
+              title={tx("Click to rename")}
             >
               {project.name}
             </h1>
           )}
 
-          <p className="text-xs text-text-secondary line-clamp-2">
+          <p className="text-xs text-text-secondary leading-relaxed line-clamp-2">
             {project.description || 'No description provided.'}
           </p>
         </div>
 
         {/* Project Meta Controls (Status & Priority) */}
-        <div className="flex sm:flex-col items-center sm:items-end gap-2.5 shrink-0">
+        <div className="flex sm:flex-col items-center sm:items-end gap-2.5 shrink-0 pt-1">
           <div className="flex items-center gap-2">
-            <span className="text-[11px] text-text-muted">Status:</span>
+            <span className="text-[11px] text-text-muted">{t('workspace.settings.status')}:</span>
             <Select
               value={project.status}
               onValueChange={(val) =>
                 updateProject(project.id, { status: val as ProjectStatus })
               }
             >
-              <SelectTrigger className="w-32 h-7 text-xs bg-bg-base">
+              <SelectTrigger className="w-32 h-7.5 text-xs bg-bg-base border-border-subtle">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="backlog">Backlog</SelectItem>
-                <SelectItem value="paused">Paused</SelectItem>
-                <SelectItem value="completed">Completed</SelectItem>
-                <SelectItem value="archived">Archived</SelectItem>
+              <SelectContent className="bg-bg-surface border-border">
+                <SelectItem value="active">{t('projects.filters.active')}</SelectItem>
+                <SelectItem value="backlog">{t('projects.filters.backlog')}</SelectItem>
+                <SelectItem value="paused">{t('projects.filters.paused')}</SelectItem>
+                <SelectItem value="completed">{t('projects.filters.completed')}</SelectItem>
+                <SelectItem value="archived">{t('projects.filters.archived')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="text-[11px] text-text-muted">Priority:</span>
+            <span className="text-[11px] text-text-muted">{t('workspace.settings.priority')}:</span>
             <Select
               value={project.priority}
               onValueChange={(val) =>
                 updateProject(project.id, { priority: val as Priority })
               }
             >
-              <SelectTrigger className="w-28 h-7 text-xs bg-bg-base">
+              <SelectTrigger className="w-28 h-7.5 text-xs bg-bg-base border-border-subtle">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="urgent">Urgent</SelectItem>
-                <SelectItem value="high">High</SelectItem>
-                <SelectItem value="medium">Medium</SelectItem>
-                <SelectItem value="low">Low</SelectItem>
-                <SelectItem value="none">None</SelectItem>
+              <SelectContent className="bg-bg-surface border-border">
+                <SelectItem value="urgent">{t('tasks.priority.urgent')}</SelectItem>
+                <SelectItem value="high">{t('tasks.priority.high')}</SelectItem>
+                <SelectItem value="medium">{t('tasks.priority.medium')}</SelectItem>
+                <SelectItem value="low">{t('tasks.priority.low')}</SelectItem>
+                <SelectItem value="none">{tx("None")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
-          {/* Start / Resume Session Button */}
+          {/* Start / Resume Session Action */}
           <div className="pt-1">
             {isActiveForThisProject && activeSession ? (
               <Button
                 size="sm"
                 onClick={() => navigate('/sessions')}
-                className="bg-accent-blue/20 hover:bg-accent-blue/30 text-accent-blue border border-accent-blue/30 gap-1.5 shadow-sm text-xs h-7"
-                title="View active session in Sessions"
+                className="bg-[#273220] hover:bg-[#324029] text-accent-olive border border-accent-olive/40 gap-1.5 shadow-xs text-xs h-7.5"
+                title={tx("View active session in Sessions")}
               >
                 <span className="relative flex h-2 w-2">
                   {activeSession.status === 'running' && (
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent-blue opacity-75" />
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent-olive opacity-75" />
                   )}
                   <span
                     className={cn(
                       'relative inline-flex rounded-full h-2 w-2',
-                      activeSession.status === 'running' ? 'bg-accent-blue' : 'bg-accent-amber'
+                      activeSession.status === 'running' ? 'bg-accent-olive' : 'bg-accent-amber'
                     )}
                   />
                 </span>
@@ -382,41 +437,43 @@ export function ProjectWorkspace() {
             ) : (
               <Button
                 size="sm"
+                variant="olive"
                 onClick={() => setIsStartSessionOpen(true)}
-                className="gap-1.5 text-xs h-7 shadow-sm"
+                className="gap-1.5 text-xs h-7.5 shadow-xs"
               >
                 <Play className="h-3 w-3 fill-current" />
-                <span>Start Session</span>
+                <span>{t('workspace.startSession')}</span>
               </Button>
             )}
           </div>
         </div>
       </div>
 
-      {/* ── Signature "Continue where you left off" Continuity Section ── */}
+      {/* ─── Signature Continuity Banner ("Continue where you left off") ─── */}
       {latestSession ? (
-        <div className="rounded-xl border border-border bg-gradient-to-br from-bg-surface via-bg-surface to-bg-elevated/60 p-4 shadow-sm space-y-3">
+        <div className="rounded-xl border border-border bg-gradient-to-br from-[#181816] via-[#141412] to-[#111110] p-5 shadow-xs space-y-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <div className="flex h-6 w-6 items-center justify-center rounded-md bg-accent-blue/15 text-accent-blue border border-accent-blue/25 shrink-0">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-6 w-6 items-center justify-center rounded bg-accent-olive/20 text-accent-olive border border-accent-olive/30 shrink-0">
                 <Sparkles className="h-3.5 w-3.5" />
               </div>
               <div>
                 <h3 className="text-xs font-semibold text-text-primary tracking-wide">
-                  Continue where you left off
+                  {t('dashboard.continueWorking')}
                 </h3>
                 <p className="text-[10px] text-text-muted">
-                  Context derived from your last recorded session ({latestSession.title})
+                  {latestSession.title}
                 </p>
               </div>
             </div>
 
             <div className="flex items-center gap-2 shrink-0">
               <span className="text-[10px] font-mono text-text-muted px-2 py-0.5 rounded bg-bg-base border border-border-subtle">
-                Worked {formatTimeAgo(latestSession.endedAt || latestSession.updatedAt)} • {formatDuration(latestSession.accumulatedDurationMs)}
+                {formatTimeAgo(latestSession.endedAt || latestSession.updatedAt, i18n.language)} • {formatDuration(latestSession.accumulatedDurationMs)}
               </span>
               <Button
                 size="xs"
+                variant="olive"
                 onClick={() => {
                   if (activeSession) {
                     navigate('/sessions')
@@ -424,100 +481,69 @@ export function ProjectWorkspace() {
                     setIsStartSessionOpen(true)
                   }
                 }}
-                className="gap-1 text-xs h-6"
+                className="gap-1 text-xs h-6.5"
               >
                 <Play className="h-2.5 w-2.5 fill-current" />
-                <span>Resume Work</span>
+                <span>{t('dashboard.resumeWork')}</span>
               </Button>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 pt-1">
-            {/* What you accomplished */}
-            <div className="p-2.5 rounded-lg border border-border-subtle bg-bg-base/70 space-y-1">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
+            {/* Last Accomplishment */}
+            <div className="p-3 rounded-lg border border-border-subtle bg-bg-base/70 space-y-1">
               <span className="text-[10px] font-semibold uppercase tracking-wider text-accent-green flex items-center gap-1">
-                <CheckCircle2 className="h-3 w-3" /> Last Accomplished
+                <CheckCircle2 className="h-3 w-3" /> {t('sessions.dialogs.accomplishments')}
               </span>
               <p className="text-xs text-text-primary line-clamp-3 leading-relaxed">
                 {latestSession.accomplishments || (
-                  <span className="text-text-muted italic">No specific accomplishment noted.</span>
+                  <span className="text-text-muted italic">{tx("None recorded.")}</span>
                 )}
               </p>
             </div>
 
             {/* Blockers */}
-            <div className="p-2.5 rounded-lg border border-border-subtle bg-bg-base/70 space-y-1">
+            <div className="p-3 rounded-lg border border-border-subtle bg-bg-base/70 space-y-1">
               <span className="text-[10px] font-semibold uppercase tracking-wider text-accent-amber flex items-center gap-1">
-                <AlertCircle className="h-3 w-3" /> Blockers & Friction
+                <AlertCircle className="h-3 w-3" /> {t('sessions.dialogs.blockers')}
               </span>
               <p className="text-xs text-text-primary line-clamp-3 leading-relaxed">
-                {latestSession.blockers ? (
-                  latestSession.blockers
-                ) : (
-                  <span className="text-text-muted italic">None reported. Flow was smooth.</span>
+                {latestSession.blockers || (
+                  <span className="text-text-muted italic">{tx("None reported. Flow was smooth.")}</span>
                 )}
               </p>
             </div>
 
             {/* Planned Next Step */}
-            <div className="p-2.5 rounded-lg border border-accent-blue/20 bg-accent-blue/5 space-y-1">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-accent-blue flex items-center gap-1">
-                <ArrowRight className="h-3 w-3" /> Planned Next Step
+            <div className="p-3 rounded-lg border border-accent-olive/30 bg-accent-olive/10 space-y-1">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-accent-olive flex items-center gap-1">
+                <ArrowRight className="h-3 w-3" /> {t('sessions.dialogs.nextAction')}
               </span>
               <p className="text-xs text-text-primary font-medium line-clamp-3 leading-relaxed">
                 {latestSession.nextStep || project.nextAction || (
-                  <span className="text-text-muted italic font-normal">No next step specified.</span>
+                  <span className="text-text-muted italic font-normal">{tx("No next step specified.")}</span>
                 )}
               </p>
             </div>
           </div>
         </div>
-      ) : (
-        /* Empty continuity state when no sessions have been recorded */
-        <div className="rounded-xl border border-border-subtle bg-bg-surface/50 p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-bg-elevated border border-border text-text-muted shrink-0">
-              <Timer className="h-3.5 w-3.5" />
-            </div>
-            <div>
-              <p className="text-xs font-medium text-text-secondary">
-                No recorded work sessions yet
-              </p>
-              <p className="text-[11px] text-text-muted">
-                Start a session to track focus time, log accomplishments, and seamlessly resume later.
-              </p>
-            </div>
-          </div>
-          <Button
-            size="xs"
-            variant="outline"
-            onClick={() => setIsStartSessionOpen(true)}
-            className="gap-1 text-xs shrink-0 self-start sm:self-auto"
-          >
-            <Play className="h-2.5 w-2.5 fill-current" />
-            <span>Start First Session</span>
-          </Button>
-        </div>
-      )}
+      ) : null}
 
-      {/* PROMINENT "NEXT ACTION" FIELD */}
-      <div className="relative p-4 rounded-xl border border-accent-blue/30 bg-gradient-to-r from-accent-blue/10 via-bg-surface to-bg-surface shadow-md">
+      {/* ─── PROMINENT "NEXT ACTION" FIELD (Stitch Highlight) ─── */}
+      <div className="relative p-5 rounded-xl border border-border bg-bg-surface shadow-xs">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
-            <div className="flex h-5 w-5 items-center justify-center rounded-full bg-accent-blue text-white shadow-sm">
+            <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[#273220] text-accent-olive border border-accent-olive/40 shadow-xs">
               <Target className="h-3 w-3 stroke-[2.5]" />
             </div>
-            <span className="text-xs font-bold uppercase tracking-wider text-accent-blue">
-              Next Action
-            </span>
-            <span className="text-[10px] text-text-muted hidden sm:inline">
-              (Auto-saves on blur)
+            <span className="text-xs font-semibold uppercase tracking-section text-accent-olive">
+              {t('workspace.nextActionLabel')}
             </span>
           </div>
 
           {nextActionSaved && (
             <span className="flex items-center gap-1 text-[11px] font-medium text-accent-green animate-in fade-in">
-              <Check className="h-3 w-3" /> Saved
+              <Check className="h-3 w-3" /> {t('common.saved')}
             </span>
           )}
         </div>
@@ -532,65 +558,77 @@ export function ProjectWorkspace() {
                 e.currentTarget.blur()
               }
             }}
-            placeholder="What is the single most important next physical action to move this forward?"
-            className="h-10 text-sm font-medium bg-bg-base/90 border-accent-blue/30 focus-visible:border-accent-blue focus-visible:ring-2 focus-visible:ring-accent-blue/20 text-text-primary px-3 shadow-inner"
+            placeholder={t('workspace.nextActionPlaceholder')}
+            className="h-10 text-xs font-medium bg-bg-base/80 border-border-subtle focus-visible:border-accent-olive/70 text-text-primary px-3 shadow-inner"
           />
         </div>
       </div>
 
-      {/* Progress Metric Strip */}
-      <div className="p-3.5 rounded-lg border border-border bg-bg-surface">
+      {/* ─── Progress Metric Strip ─── */}
+      <div className="p-4 rounded-xl border border-border bg-bg-surface">
         <div className="flex items-center justify-between text-xs mb-2">
           <div className="flex items-center gap-2">
-            <span className="font-medium text-text-primary">Task Progress</span>
+            <span className="font-medium text-text-primary">{t('workspace.stats.progress')}</span>
             <span className="text-text-muted">•</span>
             <span className="text-text-secondary">
-              {stats.done} of {stats.total} completed
+              {stats.done} / {stats.total} {t('workspace.stats.tasksResolved')}
             </span>
           </div>
           <span className="font-mono font-semibold text-text-primary">
             {stats.progress}%
           </span>
         </div>
-        <ProgressBar progress={stats.progress} size="lg" />
+        <ProgressBar progress={stats.progress} size="sm" />
       </div>
 
-      {/* Workspace Tabs: Tasks & Overview */}
+      {/* ─── Workspace Tabs: Tasks, Sessions, Knowledge, Overview ─── */}
       <div className="space-y-4">
         {/* Tab Headers */}
-        <div className="flex items-center gap-2 border-b border-border-subtle pb-2">
+        <div className="flex items-center gap-2 border-b border-border-subtle pb-2 overflow-x-auto">
           <button
             onClick={() => setActiveTab('tasks')}
             className={cn(
-              'h-8 px-4 rounded-md text-xs font-medium transition-colors',
+              'h-8 px-3.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap',
               activeTab === 'tasks'
-                ? 'bg-bg-elevated text-text-primary border border-border shadow-sm'
-                : 'text-text-secondary hover:text-text-primary hover:bg-bg-hover'
+                ? 'bg-bg-elevated text-text-primary border border-border/80 shadow-xs'
+                : 'text-text-secondary hover:text-text-primary hover:bg-bg-hover/60'
             )}
           >
-            Tasks ({stats.total})
+            {t('workspace.tabs.tasks')} ({stats.total})
           </button>
           <button
             onClick={() => setActiveTab('sessions')}
             className={cn(
-              'h-8 px-4 rounded-md text-xs font-medium transition-colors',
+              'h-8 px-3.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap',
               activeTab === 'sessions'
-                ? 'bg-bg-elevated text-text-primary border border-border shadow-sm'
-                : 'text-text-secondary hover:text-text-primary hover:bg-bg-hover'
+                ? 'bg-bg-elevated text-text-primary border border-border/80 shadow-xs'
+                : 'text-text-secondary hover:text-text-primary hover:bg-bg-hover/60'
             )}
           >
-            Sessions ({completedProjectSessions.length})
+            {t('workspace.tabs.sessions')} ({completedProjectSessions.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('knowledge')}
+            className={cn(
+              'h-8 px-3.5 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 whitespace-nowrap',
+              activeTab === 'knowledge'
+                ? 'bg-bg-elevated text-text-primary border border-border/80 shadow-xs'
+                : 'text-text-secondary hover:text-text-primary hover:bg-bg-hover/60'
+            )}
+          >
+            <BookOpen className="h-3.5 w-3.5 text-accent-olive" />
+            <span>{t('workspace.tabs.knowledge')} ({totalKnowledgeCount})</span>
           </button>
           <button
             onClick={() => setActiveTab('overview')}
             className={cn(
-              'h-8 px-4 rounded-md text-xs font-medium transition-colors',
+              'h-8 px-3.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap',
               activeTab === 'overview'
-                ? 'bg-bg-elevated text-text-primary border border-border shadow-sm'
-                : 'text-text-secondary hover:text-text-primary hover:bg-bg-hover'
+                ? 'bg-bg-elevated text-text-primary border border-border/80 shadow-xs'
+                : 'text-text-secondary hover:text-text-primary hover:bg-bg-hover/60'
             )}
           >
-            Overview & Activity
+            {t('workspace.tabs.overview')}
           </button>
         </div>
 
@@ -600,10 +638,10 @@ export function ProjectWorkspace() {
             {/* Quick Add Task Bar */}
             <form
               onSubmit={handleCreateTask}
-              className="flex items-center gap-2 p-1.5 rounded-lg border border-border bg-bg-surface"
+              className="flex items-center gap-2 p-1.5 rounded-xl border border-border bg-bg-surface"
             >
               <Input
-                placeholder="Add a new task... (press Enter to save)"
+                placeholder={t('workspace.newTask.placeholder')}
                 value={newTaskTitle}
                 onChange={(e) => setNewTaskTitle(e.target.value)}
                 className="h-8 border-transparent bg-transparent focus-visible:ring-0 focus-visible:border-transparent text-xs"
@@ -617,34 +655,35 @@ export function ProjectWorkspace() {
                 <SelectTrigger className="w-24 h-7 text-xs border-border-subtle bg-bg-base shrink-0">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="urgent">Urgent</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="low">Low</SelectItem>
-                  <SelectItem value="none">None</SelectItem>
+                <SelectContent className="bg-bg-surface border-border">
+                  <SelectItem value="urgent">{t('tasks.priority.urgent')}</SelectItem>
+                  <SelectItem value="high">{t('tasks.priority.high')}</SelectItem>
+                  <SelectItem value="medium">{t('tasks.priority.medium')}</SelectItem>
+                  <SelectItem value="low">{t('tasks.priority.low')}</SelectItem>
+                  <SelectItem value="none">{tx("None")}</SelectItem>
                 </SelectContent>
               </Select>
 
               <Button
                 type="submit"
-                size="sm"
+                size="xs"
+                variant="olive"
                 disabled={!newTaskTitle.trim()}
-                className="gap-1 shrink-0"
+                className="gap-1 shrink-0 h-7 px-3 text-xs"
               >
                 <Plus className="h-3.5 w-3.5" />
-                <span>Add</span>
+                <span>{t('workspace.newTask.button')}</span>
               </Button>
             </form>
 
             {/* Task Filters */}
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1.5">
               {(
                 [
-                  { id: 'all', label: `All (${stats.total})` },
-                  { id: 'todo', label: `Todo (${stats.todo})` },
-                  { id: 'in_progress', label: `In Progress (${stats.inProgress})` },
-                  { id: 'done', label: `Done (${stats.done})` },
+                  { id: 'all', label: `${t('tasks.status.all')} (${stats.total})` },
+                  { id: 'todo', label: `${t('tasks.status.todo')} (${stats.todo})` },
+                  { id: 'in_progress', label: `${t('tasks.status.in_progress')} (${stats.inProgress})` },
+                  { id: 'done', label: `${t('tasks.status.done')} (${stats.done})` },
                 ] as const
               ).map((tab) => (
                 <button
@@ -653,8 +692,8 @@ export function ProjectWorkspace() {
                   className={cn(
                     'h-6 px-2.5 rounded text-[11px] font-medium transition-colors',
                     taskFilter === tab.id
-                      ? 'bg-bg-elevated text-text-primary border border-border shadow-sm'
-                      : 'text-text-secondary hover:text-text-primary hover:bg-bg-hover'
+                      ? 'bg-bg-elevated text-text-primary border border-border/80 shadow-xs'
+                      : 'text-text-secondary hover:text-text-primary hover:bg-bg-hover/60'
                   )}
                 >
                   {tab.label}
@@ -663,18 +702,21 @@ export function ProjectWorkspace() {
             </div>
 
             {/* Task Rows List */}
-            <div className="rounded-lg border border-border bg-bg-surface overflow-hidden divide-y divide-border-subtle shadow-sm">
+            <div className="rounded-xl border border-border bg-bg-surface overflow-hidden divide-y divide-border-subtle shadow-xs">
               {filteredTasks.length > 0 ? (
                 <div className="p-1 space-y-0.5">
                   {filteredTasks.map((task) => (
-                    <TaskRow key={task.id} task={task} />
+                    <TaskRow
+                      key={task.id}
+                      task={task}
+                      scheduleSummary={taskScheduleSummaries[task.id]}
+                      className={task.id === taskIntentId ? 'ring-1 ring-accent-olive/50' : undefined}
+                    />
                   ))}
                 </div>
               ) : (
                 <div className="p-8 text-center text-xs text-text-muted">
-                  {taskFilter === 'all'
-                    ? 'No tasks in this project yet. Add one above!'
-                    : `No tasks matching status "${taskFilter}".`}
+                  {t('tasks.noTasks')}
                 </div>
               )}
             </div>
@@ -684,15 +726,16 @@ export function ProjectWorkspace() {
         {/* TAB 2: Overview */}
         {activeTab === 'overview' && (
           <div className="space-y-6">
+            <ProjectScheduleSection projectId={project.id} />
             {/* Description & Details */}
-            <div className="rounded-lg border border-border bg-bg-surface p-4 space-y-3">
+            <div className="rounded-xl border border-border bg-bg-surface p-5 space-y-3">
               <div className="flex items-center justify-between">
                 <h3 className="text-xs font-semibold text-text-primary">
-                  Project Description
+                  {t('workspace.settings.description')}
                 </h3>
                 {descSaved && (
                   <span className="flex items-center gap-1 text-[10px] text-accent-green font-medium">
-                    <Check className="h-3 w-3" /> Saved
+                    <Check className="h-3 w-3" /> {t('common.saved')}
                   </span>
                 )}
               </div>
@@ -701,65 +744,62 @@ export function ProjectWorkspace() {
                 value={descValue}
                 onChange={(e) => setDescValue(e.target.value)}
                 onBlur={handleSaveDescription}
-                placeholder="Describe project objectives, scope, or key milestones..."
-                className="text-xs bg-bg-base"
+                placeholder={tx("Describe project objectives, scope, or key milestones...")}
+                className="text-xs bg-bg-base border-border-subtle"
               />
               <div className="text-[10px] text-text-muted">
-                Changes save automatically when you click outside.
-              </div>
+                {tx("Changes save automatically when you click outside.")}</div>
             </div>
 
             {/* Metadata Summary */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="p-3 rounded-lg border border-border bg-bg-surface space-y-1">
-                <span className="text-[10px] uppercase font-semibold text-text-muted">
-                  Created
-                </span>
-                <div className="text-xs font-medium text-text-primary flex items-center gap-1.5">
+              <div className="p-4 rounded-xl border border-border bg-bg-surface space-y-1">
+                <span className="text-[10px] uppercase font-semibold text-text-muted tracking-section">
+                  {tx("Created")}</span>
+                <div className="text-xs font-medium text-text-primary flex items-center gap-1.5 pt-1">
                   <Calendar className="h-3.5 w-3.5 text-text-muted" />
-                  {new Date(project.createdAt).toLocaleDateString()}
+                  {new Date(project.createdAt).toLocaleDateString(i18n.language === 'ru' ? 'ru-RU' : 'en-US')}
                 </div>
               </div>
 
-              <div className="p-3 rounded-lg border border-border bg-bg-surface space-y-1">
-                <span className="text-[10px] uppercase font-semibold text-text-muted">
-                  Last Updated
-                </span>
-                <div className="text-xs font-medium text-text-primary flex items-center gap-1.5">
+              <div className="p-4 rounded-xl border border-border bg-bg-surface space-y-1">
+                <span className="text-[10px] uppercase font-semibold text-text-muted tracking-section">
+                  {tx("Last Updated")}</span>
+                <div className="text-xs font-medium text-text-primary flex items-center gap-1.5 pt-1">
                   <Clock className="h-3.5 w-3.5 text-text-muted" />
-                  {new Date(project.updatedAt).toLocaleTimeString([], {
+                  {new Date(project.updatedAt).toLocaleTimeString(i18n.language === 'ru' ? 'ru-RU' : 'en-US', {
                     hour: '2-digit',
                     minute: '2-digit',
                   })}
                 </div>
               </div>
 
-              <div className="p-3 rounded-lg border border-border bg-bg-surface space-y-1">
-                <span className="text-[10px] uppercase font-semibold text-text-muted">
-                  Current Status
+              <div className="p-4 rounded-xl border border-border bg-bg-surface space-y-1">
+                <span className="text-[10px] uppercase font-semibold text-text-muted tracking-section">
+                  {t('workspace.settings.status')}
                 </span>
-                <div>
+                <div className="pt-1">
                   <StatusBadge status={project.status} />
                 </div>
               </div>
             </div>
 
             {/* Project Activity History */}
-            <div className="rounded-lg border border-border bg-bg-surface overflow-hidden">
-              <div className="px-4 py-2.5 border-b border-border-subtle bg-bg-elevated/40">
+            <div className="rounded-xl border border-border bg-bg-surface overflow-hidden shadow-xs">
+              <div className="px-5 py-3 border-b border-border-subtle bg-bg-elevated/40">
                 <h3 className="text-xs font-semibold text-text-primary">
-                  Project Activity History
+                  {t('dashboard.recentActivity')}
                 </h3>
               </div>
 
               {projectActivities.length > 0 ? (
-                <div className="p-3 divide-y divide-border-subtle">
+                <div className="p-4 divide-y divide-border-subtle">
                   {projectActivities.map((act) => (
-                    <div key={act.id} className="py-2 first:pt-0 last:pb-0 text-xs">
+                    <div key={act.id} className="py-2.5 first:pt-0 last:pb-0 text-xs">
                       <div className="flex items-center justify-between text-text-primary">
                         <span>{act.description}</span>
                         <span className="font-mono text-[10px] text-text-muted">
-                          {new Date(act.createdAt).toLocaleTimeString([], {
+                          {new Date(act.createdAt).toLocaleTimeString(i18n.language === 'ru' ? 'ru-RU' : 'en-US', {
                             hour: '2-digit',
                             minute: '2-digit',
                           })}
@@ -769,8 +809,8 @@ export function ProjectWorkspace() {
                   ))}
                 </div>
               ) : (
-                <div className="p-6 text-center text-xs text-text-muted">
-                  No activity logged yet for this project.
+                <div className="p-8 text-center text-xs text-text-muted">
+                  {t('dashboard.noActivity')}
                 </div>
               )}
             </div>
@@ -782,48 +822,47 @@ export function ProjectWorkspace() {
           <div className="space-y-4">
             {/* Metric Summary Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="p-3.5 rounded-lg border border-border bg-bg-surface space-y-1">
-                <span className="text-[10px] uppercase font-semibold text-text-muted flex items-center gap-1.5">
-                  <Clock className="h-3 w-3 text-accent-blue" /> Total Project Focus
+              <div className="p-4 rounded-xl border border-border bg-bg-surface space-y-1">
+                <span className="text-[10px] uppercase font-semibold text-text-muted flex items-center gap-1.5 tracking-section">
+                  <Clock className="h-3 w-3 text-accent-olive" /> {t('workspace.stats.focusTime')}
                 </span>
-                <div className="font-mono text-lg font-bold text-text-primary">
+                <div className="font-mono text-lg font-bold text-text-primary pt-0.5">
                   {formatDuration(projectTotalDuration)}
                 </div>
               </div>
 
-              <div className="p-3.5 rounded-lg border border-border bg-bg-surface space-y-1">
-                <span className="text-[10px] uppercase font-semibold text-text-muted flex items-center gap-1.5">
-                  <History className="h-3 w-3 text-accent-green" /> Total Sessions
+              <div className="p-4 rounded-xl border border-border bg-bg-surface space-y-1">
+                <span className="text-[10px] uppercase font-semibold text-text-muted flex items-center gap-1.5 tracking-section">
+                  <History className="h-3 w-3 text-accent-green" /> {t('workspace.stats.sessions')}
                 </span>
-                <div className="font-mono text-lg font-bold text-text-primary">
+                <div className="font-mono text-lg font-bold text-text-primary pt-0.5">
                   {completedProjectSessions.length}
                 </div>
               </div>
 
-              <div className="p-3.5 rounded-lg border border-border bg-bg-surface space-y-1">
-                <span className="text-[10px] uppercase font-semibold text-text-muted flex items-center gap-1.5">
-                  <Calendar className="h-3 w-3 text-accent-purple" /> Last Worked
-                </span>
-                <div className="text-xs font-medium text-text-primary mt-1">
-                  {latestSession ? formatTimeAgo(latestSession.endedAt || latestSession.updatedAt) : 'Never'}
+              <div className="p-4 rounded-xl border border-border bg-bg-surface space-y-1">
+                <span className="text-[10px] uppercase font-semibold text-text-muted flex items-center gap-1.5 tracking-section">
+                  <Calendar className="h-3 w-3 text-accent-purple" /> {tx("Last Worked")}</span>
+                <div className="text-xs font-medium text-text-primary pt-1">
+                  {latestSession ? formatTimeAgo(latestSession.endedAt || latestSession.updatedAt, i18n.language) : tx("Never")}
                 </div>
               </div>
             </div>
 
             {/* If there is an active session for THIS project */}
             {isActiveForThisProject && activeSession && (
-              <div className="p-3.5 rounded-lg border border-accent-blue/30 bg-accent-blue/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="p-4 rounded-xl border border-accent-olive/40 bg-accent-olive/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-md bg-accent-blue/20 text-accent-blue border border-accent-blue/30 shrink-0">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#273220] text-accent-olive border border-accent-olive/30 shrink-0">
                     <Timer className="h-4 w-4" />
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-semibold text-text-primary">
-                        Active: {activeSession.title}
+                        {t('sessions.activePanel.currentSprint')}: {activeSession.title}
                       </span>
-                      <span className="font-mono text-[10px] uppercase px-1.5 py-0.2 rounded bg-accent-blue/20 text-accent-blue border border-accent-blue/30 font-semibold">
-                        {activeSession.status}
+                      <span className="font-mono text-[9px] uppercase px-1.5 py-0.2 rounded bg-accent-olive/20 text-accent-olive border border-accent-olive/30 font-semibold">
+                        {activeSession.status === 'running' ? t('sessions.activePanel.running') : t('sessions.activePanel.paused')}
                       </span>
                     </div>
                     {activeSession.objective && (
@@ -840,7 +879,7 @@ export function ProjectWorkspace() {
                 </div>
 
                 <div className="flex items-center gap-2.5 shrink-0 self-end sm:self-auto">
-                  <span className="font-mono text-base font-bold text-accent-blue mr-1">
+                  <span className="font-mono text-base font-bold text-accent-olive mr-1">
                     {formatTimer(activeSessionLiveMs)}
                   </span>
                   {activeSession.status === 'running' ? (
@@ -851,7 +890,7 @@ export function ProjectWorkspace() {
                       className="gap-1 h-7 text-xs"
                     >
                       <Pause className="h-3 w-3" />
-                      <span>Pause</span>
+                      <span>{t('sessions.activePanel.pause')}</span>
                     </Button>
                   ) : (
                     <Button
@@ -861,15 +900,16 @@ export function ProjectWorkspace() {
                       className="gap-1 h-7 text-xs"
                     >
                       <Play className="h-3 w-3" />
-                      <span>Resume</span>
+                      <span>{t('sessions.activePanel.resume')}</span>
                     </Button>
                   )}
                   <Button
                     size="xs"
+                    variant="olive"
                     onClick={() => navigate('/sessions')}
                     className="gap-1 h-7 text-xs"
                   >
-                    <span>Open</span>
+                    <span>{t('session.open')}</span>
                     <ExternalLink className="h-3 w-3" />
                   </Button>
                 </div>
@@ -877,18 +917,19 @@ export function ProjectWorkspace() {
             )}
 
             {/* Sessions List */}
-            <div className="rounded-lg border border-border bg-bg-surface overflow-hidden shadow-sm">
-              <div className="flex items-center justify-between px-4 py-3 border-b border-border-subtle bg-bg-elevated/40">
+            <div className="rounded-xl border border-border bg-bg-surface overflow-hidden shadow-xs">
+              <div className="flex items-center justify-between px-5 py-3 border-b border-border-subtle bg-bg-elevated/40">
                 <h3 className="text-xs font-semibold text-text-primary">
-                  Recorded Sessions ({completedProjectSessions.length})
+                  {t('sessions.history.title')} ({completedProjectSessions.length})
                 </h3>
                 <Button
                   size="xs"
+                  variant="olive"
                   onClick={() => setIsStartSessionOpen(true)}
-                  className="gap-1 text-xs h-6"
+                  className="gap-1 text-xs h-6.5 px-2.5"
                 >
                   <Plus className="h-3 w-3" />
-                  <span>New Session</span>
+                  <span>{t('sessions.newSession')}</span>
                 </Button>
               </div>
 
@@ -899,11 +940,11 @@ export function ProjectWorkspace() {
                       <div
                         key={sess.id}
                         onClick={() => setSelectedSessionForDetail(sess)}
-                        className="p-3.5 hover:bg-bg-hover/60 transition-colors cursor-pointer group space-y-1.5"
+                        className="p-4 hover:bg-bg-hover/60 transition-colors cursor-pointer group space-y-1.5"
                       >
                         <div className="flex items-center justify-between gap-3">
                           <div className="flex items-center gap-2 min-w-0">
-                            <span className="text-xs font-medium text-text-primary group-hover:text-accent-blue transition-colors truncate">
+                            <span className="text-xs font-medium text-text-primary group-hover:text-accent-olive transition-colors truncate">
                               {sess.title}
                             </span>
                             {sess.outcome && (
@@ -927,7 +968,7 @@ export function ProjectWorkspace() {
                               {formatDuration(sess.accumulatedDurationMs)}
                             </span>
                             <span className="text-[10px] text-text-muted font-mono">
-                              {formatTimeAgo(sess.endedAt || sess.updatedAt)}
+                              {formatTimeAgo(sess.endedAt || sess.updatedAt, i18n.language)}
                             </span>
                           </div>
                         </div>
@@ -937,13 +978,13 @@ export function ProjectWorkspace() {
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] pt-0.5">
                             {sess.accomplishments && (
                               <p className="text-text-secondary truncate">
-                                <span className="text-accent-green font-medium">Accomplished:</span>{' '}
+                                <span className="text-accent-green font-medium">{tx("Accomplished:")}</span>{' '}
                                 {sess.accomplishments}
                               </p>
                             )}
                             {sess.nextStep && (
                               <p className="text-text-secondary truncate">
-                                <span className="text-accent-blue font-medium">Next:</span>{' '}
+                                <span className="text-accent-olive font-medium">{tx("Next:")}</span>{' '}
                                 {sess.nextStep}
                               </p>
                             )}
@@ -955,7 +996,7 @@ export function ProjectWorkspace() {
                 </div>
               ) : (
                 <div className="p-8 text-center text-xs text-text-muted space-y-3">
-                  <p>No work sessions recorded for this project yet.</p>
+                  <p>{t('sessions.history.noHistory')}</p>
                   <Button
                     size="sm"
                     variant="outline"
@@ -963,12 +1004,17 @@ export function ProjectWorkspace() {
                     className="gap-1.5 text-xs mx-auto"
                   >
                     <Play className="h-3 w-3 fill-current" />
-                    <span>Start First Session</span>
+                    <span>{t('sessions.activePanel.startPrompt')}</span>
                   </Button>
                 </div>
               )}
             </div>
           </div>
+        )}
+
+        {/* TAB 4: Knowledge Hub (Project Notes, Resources & Attachments) */}
+        {activeTab === 'knowledge' && (
+          <ProjectKnowledgeTab projectId={project.id} />
         )}
       </div>
 
@@ -998,15 +1044,13 @@ export function ProjectWorkspace() {
           if (!open) setDeleteError(null)
         }}
       >
-        <DialogContent className="max-w-sm">
+        <DialogContent className="max-w-md bg-bg-surface border-border">
           <DialogHeader>
-            <DialogTitle>Delete Project</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete{' '}
-              <span className="font-semibold text-text-primary">
-                "{project.name}"
-              </span>
-              ? This action cannot be undone. All tasks will be deleted.
+            <DialogTitle className="font-serif text-lg text-text-primary">
+              {t('workspace.settings.confirmDeleteTitle', { name: project.name })}
+            </DialogTitle>
+            <DialogDescription className="text-xs text-text-secondary leading-relaxed pt-1">
+              {t('workspace.settings.confirmDeleteDesc')}
             </DialogDescription>
           </DialogHeader>
           {deleteError && (
@@ -1014,18 +1058,22 @@ export function ProjectWorkspace() {
               {deleteError}
             </div>
           )}
-          <DialogFooter>
+          <DialogFooter className="gap-2 pt-2">
             <Button
               variant="ghost"
+              size="sm"
               onClick={() => setShowDeleteConfirm(false)}
+              className="text-xs"
             >
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button
               variant="danger"
+              size="sm"
               onClick={handleDeleteProject}
+              className="text-xs"
             >
-              Delete Project
+              {t('projects.actions.delete')}
             </Button>
           </DialogFooter>
         </DialogContent>

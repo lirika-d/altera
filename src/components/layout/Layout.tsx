@@ -2,6 +2,7 @@ import { Outlet } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { Header } from './Header'
 import { ActiveSessionBanner } from './ActiveSessionBanner'
+import { PlannerReminderBanner } from '@/components/calendar/PlannerReminderBanner'
 import { CreateProjectDialog } from '@/components/shared/CreateProjectDialog'
 import { TooltipProvider } from '@/components/ui/tooltip'
 
@@ -16,6 +17,7 @@ export function Layout() {
         <div className="flex flex-col flex-1 h-screen overflow-hidden min-w-0">
           <Header />
           <ActiveSessionBanner />
+          <PlannerReminderBanner />
           <main className="flex-1 overflow-y-auto">
             <Outlet />
           </main>

@@ -1,4 +1,7 @@
 import * as React from 'react'
+import { useLocation, useSearchParams } from 'react-router-dom'
+import { useLiveQuery } from 'dexie-react-hooks'
+import { db } from '@/db/db'
 import { Plus, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { SessionStatsOverview } from '@/components/sessions/SessionStatsOverview'
@@ -9,17 +12,55 @@ import { EndSessionDialog } from '@/components/sessions/EndSessionDialog'
 import { SessionDetailDialog } from '@/components/sessions/SessionDetailDialog'
 import { useActiveSession } from '@/hooks/useSessions'
 import { useProjects } from '@/hooks/useProjects'
+import { useTranslation } from '@/i18n'
 import type { Session, Project } from '@/types'
 
 export function Sessions() {
+  const { t } = useTranslation()
+  const location = useLocation()
+  const [searchParams, setSearchParams] = useSearchParams()
   const activeSession = useActiveSession()
   const allProjects = useProjects() || []
 
   const [isStartOpen, setIsStartOpen] = React.useState(false)
   const [isEndOpen, setIsEndOpen] = React.useState(false)
-  const [selectedSession, setSelectedSession] = React.useState<
+  const [manuallySelectedSession, setManuallySelectedSession] = React.useState<
     (Session & { project?: Project; taskTitle?: string }) | null
   >(null)
+  const actionHandledLocationRef = React.useRef<string | null>(null)
+  const routeAction = searchParams.get('action')
+  const routeProjectId = searchParams.get('project') || undefined
+  const routeTaskId = searchParams.get('task') || undefined
+  const routeBlockId = searchParams.get('block') || undefined
+  const routeSessionId = searchParams.get('session') || undefined
+  const routedSession = useLiveQuery(async () => {
+    if (!routeSessionId) return null
+    return (await db.sessions.get(routeSessionId)) ?? null
+  }, [routeSessionId])
+
+  // Consume route actions once. Replacing the URL keeps reloads and strict-mode
+  // effect replay from opening another copy of the dialog.
+  React.useEffect(() => {
+    if (routeAction !== 'start' || actionHandledLocationRef.current === location.key) return
+    actionHandledLocationRef.current = location.key
+    setIsStartOpen(true)
+    const next = new URLSearchParams(searchParams)
+    next.delete('action')
+    setSearchParams(next, { replace: true })
+  }, [location.key, routeAction, searchParams, setSearchParams])
+
+  React.useEffect(() => {
+    if (!routeSessionId || routedSession === undefined) return
+    if (!routedSession || routedSession.id !== routeSessionId) {
+      const next = new URLSearchParams(searchParams)
+      next.delete('session')
+      setSearchParams(next, { replace: true })
+    }
+  }, [routeSessionId, routedSession, searchParams, setSearchParams])
+
+  const selectedSession = routeSessionId
+    ? routedSession?.id === routeSessionId ? routedSession : null
+    : manuallySelectedSession
 
   const activeProject = activeSession
     ? allProjects.find((p) => p.id === activeSession.projectId)
@@ -29,39 +70,51 @@ export function Sessions() {
     ? { ...activeSession, project: activeProject }
     : null
 
+  const handleStartDialogChange = (open: boolean) => {
+    setIsStartOpen(open)
+    if (open) return
+    if (!routeProjectId && !routeTaskId && !routeBlockId) return
+    const next = new URLSearchParams(searchParams)
+    next.delete('project')
+    next.delete('task')
+    next.delete('block')
+    setSearchParams(next, { replace: true })
+  }
+
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
+    <div className="px-5 py-5 md:px-7 md:py-6 max-w-6xl mx-auto space-y-5">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-[#242420]">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-base font-semibold text-text-primary">
-              Work Sessions
+          <div className="flex items-center gap-2.5">
+            <h1 className="font-serif text-2xl md:text-[28px] font-medium tracking-tight text-text-primary">
+              {t('sessions.title')}
             </h1>
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-accent-blue/15 text-accent-blue border border-accent-blue/20">
-              <Sparkles className="h-2.5 w-2.5" /> Deep Work
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-[#8a9e6b]/15 text-[#8a9e6b] border border-[#8a9e6b]/25">
+              <Sparkles className="h-2.5 w-2.5" /> {t('sessions.deepWork')}
             </span>
           </div>
-          <p className="text-xs text-text-secondary mt-0.5">
-            Timed personal sprints designed to eliminate context-switching and keep projects moving.
+          <p className="text-[13px] md:text-sm text-text-secondary mt-1 font-sans">
+            {t('sessions.subtitle')}
           </p>
         </div>
 
         {/* Global Start Session Action */}
         <Button
           onClick={() => setIsStartOpen(true)}
+          variant="olive"
           size="sm"
-          className="gap-1.5 shadow-sm self-start sm:self-auto"
+          className="gap-1.5 shadow-sm self-start sm:self-auto font-sans"
         >
           <Plus className="h-3.5 w-3.5" />
-          <span>New Session</span>
+          <span>{t('sessions.newSession')}</span>
         </Button>
       </div>
 
-      {/* 1. Real Statistics Overview */}
+      {/* 1. Statistics Overview */}
       <SessionStatsOverview />
 
-      {/* 2. Prominent but compact Active Session Panel */}
+      {/* 2. Active Session Panel */}
       <ActiveSessionPanel
         onStartNew={() => setIsStartOpen(true)}
         onEndSession={() => setIsEndOpen(true)}
@@ -69,14 +122,17 @@ export function Sessions() {
 
       {/* 3. Session History List with Filtering */}
       <SessionHistory
-        onSelectSession={(session) => setSelectedSession(session)}
+        onSelectSession={(session) => setManuallySelectedSession(session)}
         onStartNew={() => setIsStartOpen(true)}
       />
 
       {/* Modals */}
       <StartSessionDialog
         open={isStartOpen}
-        onOpenChange={setIsStartOpen}
+        onOpenChange={handleStartDialogChange}
+        initialProjectId={routeProjectId}
+        initialTaskId={routeTaskId}
+        scheduledBlockId={routeBlockId}
       />
 
       <EndSessionDialog
@@ -89,7 +145,20 @@ export function Sessions() {
         session={selectedSession}
         open={!!selectedSession}
         onOpenChange={(open) => {
-          if (!open) setSelectedSession(null)
+          if (!open) {
+            setManuallySelectedSession(null)
+            if (routeSessionId) {
+              const next = new URLSearchParams(searchParams)
+              next.delete('session')
+              setSearchParams(next, { replace: true })
+            }
+          }
+        }}
+        onDeleteSuccess={() => {
+          if (!routeSessionId) return
+          const next = new URLSearchParams(searchParams)
+          next.delete('session')
+          setSearchParams(next, { replace: true })
         }}
       />
     </div>

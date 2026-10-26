@@ -15,7 +15,9 @@ import { Badge } from '@/components/ui/badge'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { useSessionActions, formatDuration } from '@/hooks/useSessions'
 import { useTask } from '@/hooks/useTasks'
+import { useTranslation } from '@/i18n'
 import type { Session, Project } from '@/types'
+import { SessionKnowledgeLinks } from '@/components/knowledge/project'
 import {
   Calendar,
   Clock,
@@ -44,6 +46,7 @@ export function SessionDetailDialog({
   onOpenChange,
   onDeleteSuccess,
 }: SessionDetailDialogProps) {
+  const { t, tx, i18n } = useTranslation()
   const { updateCompleted, deleteSession } = useSessionActions()
   const linkedTask = useTask(session?.taskId)
 
@@ -78,7 +81,7 @@ export function SessionDetailDialog({
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!title.trim()) {
-      setErrorMessage('Title cannot be empty.')
+      setErrorMessage(tx('Title cannot be empty.'))
       return
     }
 
@@ -94,12 +97,12 @@ export function SessionDetailDialog({
         nextStep: nextStep.trim(),
       })
       setIsEditing(false)
-      setSuccessMessage('Session summary updated.')
+      setSuccessMessage(tx('Session summary updated.'))
       setTimeout(() => setSuccessMessage(null), 3000)
-    } catch (err) {
+    } catch {
       // Preserve entered text if save fails!
-      const msg = err instanceof Error ? err.message : 'Failed to update session'
-      setErrorMessage(msg)
+      console.error('Session update failed')
+      setErrorMessage(tx('Failed to update session'))
     } finally {
       setIsSaving(false)
     }
@@ -110,15 +113,15 @@ export function SessionDetailDialog({
       await deleteSession(session.id)
       onOpenChange(false)
       onDeleteSuccess?.()
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to delete session'
-      setErrorMessage(msg)
+    } catch {
+      console.error('Session deletion failed')
+      setErrorMessage(tx('Failed to delete session'))
     }
   }
 
   const formatDate = (date: Date) => {
     const d = new Date(date)
-    return d.toLocaleDateString('en-US', {
+    return d.toLocaleDateString(i18n.language === 'ru' ? 'ru-RU' : 'en-US', {
       month: 'short',
       day: 'numeric',
       year: 'numeric',
@@ -130,30 +133,30 @@ export function SessionDetailDialog({
   const outcomeBadge = (val?: string) => {
     if (val === 'completed') {
       return (
-        <Badge variant="success" className="gap-1 font-mono">
+        <Badge variant="success" className="gap-1 font-mono text-[10px] bg-[#8a9e6b]/15 text-[#8a9e6b] border-[#8a9e6b]/30">
           <CheckCircle2 className="h-3 w-3" />
-          <span>Completed</span>
+          <span>{tx("Completed")}</span>
         </Badge>
       )
     }
     if (val === 'progress') {
       return (
-        <Badge variant="default" className="gap-1 font-mono">
+        <Badge variant="default" className="gap-1 font-mono text-[10px] bg-[#1f201c] text-[#a3b899] border-[#2e2e28]">
           <Clock className="h-3 w-3" />
-          <span>Progress</span>
+          <span>{tx("Progress")}</span>
         </Badge>
       )
     }
     if (val === 'blocked') {
       return (
-        <Badge variant="warning" className="gap-1 font-mono">
+        <Badge variant="warning" className="gap-1 font-mono text-[10px] bg-amber-500/15 text-amber-400 border-amber-500/30">
           <AlertCircle className="h-3 w-3" />
-          <span>Blocked</span>
+          <span>{tx("Blocked")}</span>
         </Badge>
       )
     }
     return val ? (
-      <Badge variant="secondary" className="font-mono capitalize">
+      <Badge variant="secondary" className="font-mono text-[10px] capitalize bg-[#1a1a17] text-[#9ca3af] border-[#242420]">
         {val}
       </Badge>
     ) : null
@@ -161,25 +164,27 @@ export function SessionDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg bg-[#141412] border-[#242420] text-[#eceeed]">
         <DialogHeader>
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <span className="text-lg">{session.project?.icon || '📁'}</span>
               <div>
-                <Link
+                {session.projectSnapshot && !session.project ? (
+                  <span className="text-xs text-text-muted">{session.projectSnapshot.identifier} · {session.projectSnapshot.name} {tx("(deleted / удалён)")}</span>
+                ) : <Link
                   to={`/projects/${session.projectId}`}
                   onClick={() => onOpenChange(false)}
                   className="flex items-center gap-1.5 hover:opacity-80 transition-opacity"
-                  title="Open Project Workspace"
+                  title={tx("Open Project Workspace")}
                 >
-                  <span className="font-mono text-[10px] text-accent-blue px-1.5 py-0.2 rounded bg-accent-blue/10 border border-accent-blue/20">
+                  <span className="font-mono text-[10px] text-[#8a9e6b] px-2 py-0.5 rounded bg-[#8a9e6b]/10 border border-[#8a9e6b]/20 font-medium">
                     {session.project?.identifier || 'PROJECT'}
                   </span>
-                  <span className="text-xs text-text-secondary font-medium hover:text-text-primary">
-                    {session.project?.name || 'Unknown Project'}
+                  <span className="text-xs text-[#9ca3af] font-medium hover:text-[#eceeed]">
+                    {session.project?.name || tx('Unknown Project')}
                   </span>
-                </Link>
+                </Link>}
               </div>
             </div>
             <div className="flex items-center gap-1.5">
@@ -188,97 +193,91 @@ export function SessionDetailDialog({
                 className={cn(
                   'font-mono text-[10px] px-2 py-0.5 rounded-full capitalize border',
                   session.status === 'completed'
-                    ? 'text-accent-green bg-accent-green/10 border-accent-green/20'
+                    ? 'text-[#8a9e6b] bg-[#8a9e6b]/10 border-[#8a9e6b]/20'
                     : session.status === 'running'
-                    ? 'text-accent-blue bg-accent-blue/10 border-accent-blue/20'
-                    : 'text-accent-amber bg-accent-amber/10 border-accent-amber/20'
+                    ? 'text-[#8a9e6b] bg-[#8a9e6b]/10 border-[#8a9e6b]/20'
+                    : 'text-amber-400 bg-amber-500/10 border-amber-500/20'
                 )}
               >
                 {session.status}
               </span>
             </div>
           </div>
-          <DialogTitle className="text-sm font-semibold text-text-primary pt-1 text-left">
+          <DialogTitle className="font-serif text-lg text-[#eceeed] pt-1 text-left font-medium">
             {session.title}
           </DialogTitle>
           <DialogDescription className="sr-only">
-            Detailed breakdown of work session accomplishments, duration, and blockers.
+            {t('sessions.dialogs.detailTitle')}
           </DialogDescription>
         </DialogHeader>
 
         {errorMessage && (
-          <div className="p-2.5 rounded-md border border-accent-red/30 bg-accent-red/10 text-accent-red text-xs">
+          <div className="p-3 rounded-lg border border-red-500/30 bg-red-950/20 text-red-300 text-xs">
             {errorMessage}
           </div>
         )}
 
         {successMessage && (
-          <div className="p-2.5 rounded-md border border-accent-green/30 bg-accent-green/10 text-accent-green text-xs flex items-center gap-1.5">
+          <div className="p-3 rounded-lg border border-[#8a9e6b]/30 bg-[#8a9e6b]/10 text-[#8a9e6b] text-xs flex items-center gap-1.5">
             <Check className="h-3.5 w-3.5" />
             <span>{successMessage}</span>
           </div>
         )}
 
         {/* Overview Stats Bar */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-2.5 rounded-lg border border-border bg-bg-base text-xs">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 p-3 rounded-xl border border-[#242420] bg-[#0e0e0d] text-xs">
           <div>
-            <span className="text-[10px] uppercase font-semibold text-text-muted flex items-center gap-1">
-              <Clock className="h-3 w-3" /> Duration
-            </span>
-            <div className="font-mono font-bold text-text-primary text-sm mt-0.5">
+            <span className="text-[10px] uppercase font-semibold text-[#6b7280] flex items-center gap-1 tracking-wider">
+              <Clock className="h-3 w-3 text-[#8a9e6b]" /> {tx("Duration")}</span>
+            <div className="font-mono font-bold text-[#eceeed] text-sm mt-0.5">
               {formatDuration(session.accumulatedDurationMs)}
             </div>
           </div>
           <div>
-            <span className="text-[10px] uppercase font-semibold text-text-muted flex items-center gap-1">
-              <Calendar className="h-3 w-3" /> Started
-            </span>
-            <div className="text-[11px] text-text-secondary mt-0.5 font-mono truncate">
+            <span className="text-[10px] uppercase font-semibold text-[#6b7280] flex items-center gap-1 tracking-wider">
+              <Calendar className="h-3 w-3 text-[#8a9e6b]" /> {tx("Started")}</span>
+            <div className="text-xs text-[#9ca3af] mt-0.5 font-mono truncate">
               {formatDate(session.startedAt)}
             </div>
           </div>
           <div className="col-span-2 sm:col-span-1">
-            <span className="text-[10px] uppercase font-semibold text-text-muted flex items-center gap-1">
-              <Flag className="h-3 w-3" /> Linked Task
-            </span>
+            <span className="text-[10px] uppercase font-semibold text-[#6b7280] flex items-center gap-1 tracking-wider">
+              <Flag className="h-3 w-3 text-[#8a9e6b]" /> {tx("Linked Task")}</span>
             {session.taskId ? (
               linkedTask ? (
                 <div className="flex items-center justify-between gap-1.5 mt-0.5 min-w-0">
                   <div className="flex items-center gap-1.5 min-w-0">
                     <StatusBadge status={linkedTask.status} showLabel={false} />
-                    <span className="text-[11px] text-text-primary font-medium truncate" title={linkedTask.title}>
+                    <span className="text-xs text-[#eceeed] font-medium truncate" title={linkedTask.title}>
                       {linkedTask.title}
                     </span>
                   </div>
                   <Link
                     to={`/projects/${session.projectId}`}
                     onClick={() => onOpenChange(false)}
-                    className="text-[10px] text-accent-blue hover:underline inline-flex items-center gap-0.5 shrink-0"
-                    title="View in Project Workspace"
+                    className="text-[10px] text-[#8a9e6b] hover:underline inline-flex items-center gap-0.5 shrink-0"
+                    title={tx("View in Project Workspace")}
                   >
-                    View <ExternalLink className="h-2.5 w-2.5" />
+                    {tx("View")}<ExternalLink className="h-2.5 w-2.5" />
                   </Link>
                 </div>
               ) : (
-                <div className="text-[11px] text-text-muted italic mt-0.5">
-                  Task deleted or unavailable
-                </div>
+                <div className="text-xs text-[#6b7280] italic mt-0.5">
+                  {tx("Task deleted or unavailable")}</div>
               )
             ) : (
-              <div className="text-[11px] text-text-muted mt-0.5 truncate">
-                General project work
-              </div>
+              <div className="text-xs text-[#6b7280] mt-0.5 truncate">
+                {tx("General project work")}</div>
             )}
           </div>
         </div>
 
         {/* Objective */}
         {session.objective && (
-          <div className="p-2.5 rounded-md bg-bg-base border border-border-subtle space-y-1 text-xs">
-            <span className="text-[10px] uppercase font-semibold text-text-muted flex items-center gap-1">
-              <Target className="h-3 w-3 text-accent-purple" /> Objective
-            </span>
-            <p className="text-text-primary leading-relaxed">{session.objective}</p>
+          <div className="p-3 rounded-xl bg-[#0e0e0d] border border-[#242420] space-y-1 text-xs">
+            <span className="text-[10px] uppercase font-semibold text-[#8a9e6b] flex items-center gap-1 tracking-wider">
+              <Target className="h-3 w-3 text-[#8a9e6b]" /> {tx("Objective")}</span>
+            <p className="text-[#eceeed] leading-relaxed">{session.objective}</p>
           </div>
         )}
 
@@ -286,26 +285,26 @@ export function SessionDetailDialog({
         {!isEditing ? (
           <div className="space-y-3 pt-1 text-xs">
             {/* Accomplishments */}
-            <div className="space-y-1">
-              <span className="text-[11px] font-semibold text-text-secondary flex items-center gap-1">
-                <CheckCircle2 className="h-3.5 w-3.5 text-accent-green" />
-                Accomplishments
+            <div className="space-y-1.5">
+              <span className="text-xs font-semibold text-[#9ca3af] flex items-center gap-1.5">
+                <CheckCircle2 className="h-3.5 w-3.5 text-[#8a9e6b]" />
+                {t('sessions.dialogs.accomplishments')}
               </span>
-              <div className="p-2.5 rounded-md bg-bg-base border border-border-subtle text-text-primary whitespace-pre-wrap leading-relaxed min-h-[44px]">
+              <div className="p-3 rounded-xl bg-[#0e0e0d] border border-[#242420] text-[#eceeed] whitespace-pre-wrap leading-relaxed min-h-[48px]">
                 {session.accomplishments || (
-                  <span className="text-text-muted italic">No accomplishments recorded.</span>
+                  <span className="text-[#6b7280] italic">{tx("No accomplishments recorded.")}</span>
                 )}
               </div>
             </div>
 
             {/* Blockers */}
             {session.blockers && (
-              <div className="space-y-1">
-                <span className="text-[11px] font-semibold text-accent-red flex items-center gap-1">
+              <div className="space-y-1.5">
+                <span className="text-xs font-semibold text-amber-400 flex items-center gap-1.5">
                   <AlertCircle className="h-3.5 w-3.5" />
-                  Blockers Encountered
+                  {t('sessions.dialogs.blockers')}
                 </span>
-                <div className="p-2.5 rounded-md bg-accent-red/5 border border-accent-red/20 text-text-primary whitespace-pre-wrap leading-relaxed">
+                <div className="p-3 rounded-xl bg-amber-500/5 border border-amber-500/20 text-[#eceeed] whitespace-pre-wrap leading-relaxed">
                   {session.blockers}
                 </div>
               </div>
@@ -313,51 +312,59 @@ export function SessionDetailDialog({
 
             {/* Next Step */}
             {session.nextStep && (
-              <div className="space-y-1">
-                <span className="text-[11px] font-semibold text-accent-blue flex items-center gap-1">
+              <div className="space-y-1.5">
+                <span className="text-xs font-semibold text-[#8a9e6b] flex items-center gap-1.5">
                   <ArrowRight className="h-3.5 w-3.5" />
-                  Next Step
+                  {t('sessions.dialogs.nextAction')}
                 </span>
-                <div className="p-2.5 rounded-md bg-accent-blue/5 border border-accent-blue/20 text-text-primary font-medium">
+                <div className="p-3 rounded-xl bg-[#8a9e6b]/5 border border-[#8a9e6b]/20 text-[#eceeed] font-medium">
                   {session.nextStep}
                 </div>
               </div>
             )}
+
+            {/* Session Knowledge Notes & Resources */}
+            <div className="pt-2">
+              <SessionKnowledgeLinks
+                sessionId={session.id}
+                projectId={session.projectId}
+                sessionTitle={session.title}
+              />
+            </div>
           </div>
         ) : (
           <form onSubmit={handleSave} className="space-y-3 pt-1">
             {/* Editable Title */}
             <div className="space-y-1">
-              <label className="text-[11px] font-medium text-text-secondary">
-                Session Title
-              </label>
+              <label className="text-xs font-medium text-[#9ca3af]">
+                {tx("Session Title")}</label>
               <Input
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
+                className="bg-[#0e0e0d] border-[#242420] text-[#eceeed] focus-visible:border-[#8a9e6b]"
                 required
               />
             </div>
 
             {/* Editable Outcome */}
             <div className="space-y-1">
-              <label className="text-[11px] font-medium text-text-secondary">
-                Outcome
-              </label>
+              <label className="text-xs font-medium text-[#9ca3af]">
+                {tx("Outcome")}</label>
               <div className="grid grid-cols-3 gap-2">
                 {[
-                  { id: 'completed', label: 'Completed' },
-                  { id: 'progress', label: 'Progress Made' },
-                  { id: 'blocked', label: 'Blocked' },
+                  { id: 'completed', label: tx('Completed') },
+                  { id: 'progress', label: tx('Progress Made') },
+                  { id: 'blocked', label: tx('Blocked') },
                 ].map((item) => (
                   <button
                     key={item.id}
                     type="button"
                     onClick={() => setOutcome(item.id)}
                     className={cn(
-                      'h-7 px-2 rounded border text-xs font-medium transition-colors',
+                      'h-7 px-2 rounded-lg border text-xs font-medium transition-colors',
                       outcome === item.id
-                        ? 'border-accent-blue bg-accent-blue/15 text-accent-blue'
-                        : 'border-border bg-bg-base text-text-muted hover:bg-bg-hover hover:text-text-primary'
+                        ? 'border-[#8a9e6b] bg-[#8a9e6b]/15 text-[#8a9e6b] font-semibold'
+                        : 'border-[#242420] bg-[#0e0e0d] text-[#6b7280] hover:bg-[#1a1a17] hover:text-[#eceeed]'
                     )}
                   >
                     {item.label}
@@ -368,39 +375,42 @@ export function SessionDetailDialog({
 
             {/* Editable Accomplishments */}
             <div className="space-y-1">
-              <label className="text-[11px] font-medium text-text-secondary">
-                Accomplishments
+              <label className="text-xs font-medium text-[#9ca3af]">
+                {t('sessions.dialogs.accomplishments')}
               </label>
               <Textarea
                 rows={3}
                 value={accomplishments}
                 onChange={(e) => setAccomplishments(e.target.value)}
-                placeholder="What did you get done?"
+                className="bg-[#0e0e0d] border-[#242420] text-[#eceeed] focus-visible:border-[#8a9e6b]"
+                placeholder={tx("What did you get done?")}
               />
             </div>
 
             {/* Editable Blockers */}
             <div className="space-y-1">
-              <label className="text-[11px] font-medium text-text-secondary">
-                Blockers
+              <label className="text-xs font-medium text-[#9ca3af]">
+                {t('sessions.dialogs.blockers')}
               </label>
               <Textarea
                 rows={2}
                 value={blockers}
                 onChange={(e) => setBlockers(e.target.value)}
-                placeholder="Any issues or roadblocks?"
+                className="bg-[#0e0e0d] border-[#242420] text-[#eceeed] focus-visible:border-[#8a9e6b]"
+                placeholder={tx("Any issues or roadblocks?")}
               />
             </div>
 
             {/* Editable Next Step */}
             <div className="space-y-1">
-              <label className="text-[11px] font-medium text-text-secondary">
-                Next Step
+              <label className="text-xs font-medium text-[#9ca3af]">
+                {t('sessions.dialogs.nextAction')}
               </label>
               <Input
                 value={nextStep}
                 onChange={(e) => setNextStep(e.target.value)}
-                placeholder="Next action when returning to this project..."
+                className="bg-[#0e0e0d] border-[#242420] text-[#eceeed] focus-visible:border-[#8a9e6b]"
+                placeholder={tx("Next action when returning to this project...")}
               />
             </div>
 
@@ -410,12 +420,12 @@ export function SessionDetailDialog({
                 variant="ghost"
                 size="sm"
                 onClick={() => setIsEditing(false)}
+                className="text-[#9ca3af] hover:text-[#eceeed]"
               >
-                Cancel
-              </Button>
-              <Button type="submit" size="sm" disabled={isSaving}>
+                {tx("Cancel")}</Button>
+              <Button type="submit" variant="olive" size="sm" disabled={isSaving}>
                 <Check className="h-3 w-3 mr-1" />
-                <span>{isSaving ? 'Saving…' : 'Save Changes'}</span>
+                <span>{isSaving ? tx("Saving…") : tx("Save Changes")}</span>
               </Button>
             </div>
           </form>
@@ -423,35 +433,32 @@ export function SessionDetailDialog({
 
         {/* Delete confirmation section */}
         {showDeleteConfirm && (
-          <div className="p-3 rounded-lg border border-accent-red/30 bg-accent-red/10 space-y-2">
-            <div className="text-xs font-semibold text-accent-red">
-              Delete this session from history?
-            </div>
-            <p className="text-[11px] text-text-secondary">
-              This will remove this focus block and its recorded time from your statistics.
-            </p>
+          <div className="p-3.5 rounded-xl border border-red-500/30 bg-red-950/20 space-y-2">
+            <div className="text-xs font-semibold text-red-300">
+              {tx("Delete this session from history?")}</div>
+            <p className="text-[11px] text-[#9ca3af]">
+              {tx("This will remove this focus block and its recorded time from your statistics.")}</p>
             <div className="flex items-center gap-2 pt-1">
               <Button
                 type="button"
                 size="xs"
                 variant="ghost"
                 onClick={() => setShowDeleteConfirm(false)}
+                className="text-[#9ca3af] hover:text-[#eceeed]"
               >
-                Cancel
-              </Button>
+                {tx("Cancel")}</Button>
               <Button
                 type="button"
                 size="xs"
                 variant="danger"
                 onClick={handleDelete}
               >
-                Confirm Delete
-              </Button>
+                {tx("Confirm Delete")}</Button>
             </div>
           </div>
         )}
 
-        <DialogFooter className="flex items-center justify-between sm:justify-between pt-2 border-t border-border-subtle">
+        <DialogFooter className="flex items-center justify-between sm:justify-between pt-2 border-t border-[#242420]">
           <div className="flex items-center gap-1.5">
             {!showDeleteConfirm && (
               <Button
@@ -459,10 +466,10 @@ export function SessionDetailDialog({
                 variant="ghost"
                 size="xs"
                 onClick={() => setShowDeleteConfirm(true)}
-                className="text-text-muted hover:text-accent-red hover:bg-accent-red/10 gap-1 text-[11px]"
+                className="text-[#6b7280] hover:text-red-400 hover:bg-red-950/20 gap-1 text-xs"
               >
-                <Trash2 className="h-3 w-3" />
-                <span>Delete</span>
+                <Trash2 className="h-3.5 w-3.5" />
+                <span>{tx("Delete")}</span>
               </Button>
             )}
           </div>
@@ -474,10 +481,10 @@ export function SessionDetailDialog({
                 variant="secondary"
                 size="sm"
                 onClick={() => setIsEditing(true)}
-                className="gap-1.5"
+                className="gap-1.5 bg-[#1a1a17] hover:bg-[#242420] text-[#eceeed] border-[#2e2e28]"
               >
-                <Edit2 className="h-3 w-3 text-accent-blue" />
-                <span>Edit Summary</span>
+                <Edit2 className="h-3.5 w-3.5 text-[#8a9e6b]" />
+                <span>{tx("Edit Summary")}</span>
               </Button>
             )}
             <Button
@@ -485,9 +492,9 @@ export function SessionDetailDialog({
               variant="default"
               size="sm"
               onClick={() => onOpenChange(false)}
+              className="bg-[#1f201c] hover:bg-[#2e2e28] text-[#eceeed] border border-[#3a3a30]"
             >
-              Close
-            </Button>
+              {tx("Close")}</Button>
           </div>
         </DialogFooter>
       </DialogContent>

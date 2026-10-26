@@ -1,0 +1,209 @@
+{
+  "eyebrow": "Work analytics",
+  "title": "Insights",
+  "subtitle": "Recorded sessions, tasks, and activity from your local ALTERA data.",
+  "filters": {
+    "period": "Period",
+    "project": "Project",
+    "allProjects": "All projects",
+    "today": "Today",
+    "7d": "7 days",
+    "30d": "30 days",
+    "90d": "90 days",
+    "all": "All time",
+    "rangeContext": "Showing records from {{start}} to {{end}}",
+    "allContext": "Across all saved time",
+    "granularityDay": "By day",
+    "granularityMonth": "By month",
+    "custom": "Custom range",
+    "startDate": "From",
+    "endDate": "To",
+    "invalidCustomRange": "Choose valid dates with the start on or before the end.",
+    "reset": "Reset filters",
+    "compare": "Compare with the previous equal-length period"
+  },
+  "overview": {
+    "title": "Overview",
+    "focusTime": "Recorded focus time",
+    "focusTimeHint": "From work sessions, not calendar plans",
+    "completedSessions": "Completed sessions",
+    "completedTasks": "Task completions in period",
+    "activeProjects": "Active projects",
+    "includesUnfinished": "Including unfinished time: {{duration}}",
+    "currentProjectStatuses": "Project statuses are current"
+  },
+  "focus": {
+    "title": "Focus time",
+    "description": "A session's full duration is assigned to its local start date. Pause history by day is not stored.",
+    "noData": "No work sessions were recorded in this period.",
+    "averageCompleted": "Average completed session",
+    "unfinished": "In unfinished sessions",
+    "chartLabel": "Recorded work time ({{granularity}})",
+    "pointLabel": "{{date}}: {{duration}}, sessions — {{count}}",
+    "tableSummary": "Show chart data as a table",
+    "date": "Date",
+    "duration": "Duration",
+    "sessions": "Sessions",
+    "sessionStartNote": "Sessions belong to the period by their start date. An active session uses its live timer.",
+    "selectToFilter": "Select a period by clicking one of the columns."
+  },
+  "projects": {
+    "timeTitle": "Time by project",
+    "timeDescription": "Recorded session duration in the selected period.",
+    "noTime": "No project time was recorded in this period.",
+    "unknown": "Project unavailable",
+    "historical": "Deleted project",
+    "tasksTitle": "Tasks by project",
+    "activityTitle": "Project activity",
+    "activityDescription": "From sessions and saved events in the selected period.",
+    "lastActivity": "Last record",
+    "noActivity": "No activity recorded in this period",
+    "withoutActivity": "Active projects with no recorded activity",
+    "status": {
+      "active": "Active",
+      "backlog": "Backlog",
+      "paused": "Paused",
+      "archived": "Archived",
+      "completed": "Completed"
+    }
+  },
+  "tasks": {
+    "title": "Task status",
+    "currentNote": "Status and overdue counts show current state. Completion history uses task_completed events, then completedAt as a fallback.",
+    "noTasks": "There are no tasks in the selected project yet.",
+    "total": "Total",
+    "completed": "Completed",
+    "open": "Open",
+    "overdue": "Overdue",
+    "completion": "Completed now",
+    "statusTitle": "By status",
+    "priorityTitle": "By priority",
+    "completionTrend": "Completions over time",
+    "completionTrendNote": "Trend from saved completion events and completedAt dates for older records.",
+    "completionTrendEmpty": "No task completion records are available for this range.",
+    "weekOf": "Week of {{date}}",
+    "trendMode": {
+      "day": "By day",
+      "week": "By week",
+      "month": "By month"
+    },
+    "project": "Project",
+    "taskCount": "Tasks",
+    "missingTimestamp": "{{count}} completed tasks have no completion date and are excluded from the period metric.",
+    "status": {
+      "todo": "To do",
+      "in_progress": "In progress",
+      "done": "Completed",
+      "cancelled": "Cancelled"
+    },
+    "priority": {
+      "urgent": "Urgent",
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low",
+      "none": "No priority"
+    }
+  },
+  "activity": {
+    "title": "Recorded activity",
+    "description": "Each cell reflects work sessions and saved project or task events—not merely opening the app.",
+    "noActivity": "No work sessions or events were recorded in this period.",
+    "activePeriods": "Periods with activity: {{count}}",
+    "tableSummary": "Show activity as a table",
+    "recordedCount": "Records",
+    "zero": "No records"
+  },
+  "warnings": {
+    "invalidSessions": "Invalid session records were excluded: {{count}}.",
+    "overlap": "Overlapping sessions were found ({{count}} records). Their time was excluded to avoid inflating the total."
+  },
+  "empty": {
+    "title": "Nothing to analyze yet",
+    "description": "Create a project or record a work session. Your insights will appear here automatically."
+  },
+  "comparison": {
+    "title": "Period comparison",
+    "description": "Equal local-calendar ranges are compared. Sessions updated after the previous range ended are excluded because pause history cannot reconstruct the past state.",
+    "focus": "Recorded work",
+    "planned": "Planned time",
+    "sessions": "Completed sessions",
+    "tasks": "Task completions",
+    "change": "Change",
+    "noPercentage": "percentage unavailable for a zero baseline"
+  },
+  "planning": {
+    "title": "Planned and actual time",
+    "description": "Planned time comes from calendar blocks; actual time comes from recorded work sessions. They remain separate.",
+    "planned": "Planned",
+    "actual": "From sessions",
+    "uncompleted": "Blocks still planned after their end",
+    "chartLabel": "Comparison of planned and recorded work time",
+    "sessionStartNote": "Session time is assigned to its local start date.",
+    "empty": "There is no scheduled or recorded time in the selected range.",
+    "tableSummary": "Show chart values as a table",
+    "byProject": "By project · planned / actual",
+    "noProjects": "No calendar blocks or sessions are linked to projects.",
+    "unassigned": "No project",
+    "uncompletedNote": "Counts past blocks still marked planned. This does not mean that no work took place.",
+    "relationshipNote": "Planned and actual time are not matched by overlapping dates. Only their separate totals are shown.",
+    "emptyProject": "Project unavailable"
+  },
+  "deepDive": {
+    "title": "Project: {{project}}",
+    "description": "Summary for the selected range and the current task state.",
+    "openWorkspace": "Open project",
+    "actual": "Recorded work time",
+    "completedSessions": "Completed sessions",
+    "openTasks": "Open tasks",
+    "completedTasks": "Completed now",
+    "completedInPeriod": "Completions in period",
+    "overdueTasks": "Overdue now",
+    "planned": "Planned",
+    "uncompletedBlocks": "Blocks not marked complete",
+    "activityTitle": "Project timeline",
+    "lastActivity": "Last record",
+    "noActivity": "No saved project events are available for this range.",
+    "timeSplit": "Planned and actual",
+    "linkedBlock": "linked to “{{title}}”",
+    "kind": {
+      "session": "Work session",
+      "task": "Task event",
+      "project": "Project event",
+      "calendar": "Scheduled block"
+    },
+    "events": {
+      "taskCreated": "Task created",
+      "taskCompleted": "Task completed",
+      "taskDeleted": "Task deleted",
+      "projectCreated": "Project created",
+      "projectUpdated": "Project updated",
+      "nextActionSet": "Next action set",
+      "unknown": "Saved event"
+    }
+  },
+  "automatic": {
+    "title": "Data observations",
+    "description": "Factual observations from explicit rules, without judgments or claims about causes.",
+    "empty": "There is not enough data for observations yet.",
+    "openTasks": "Open tasks",
+    "viewProject": "View project",
+    "messages": {
+      "focus_change": "Recorded work time is {{current}} in the current period and {{previous}} in the preceding equal-length period.",
+      "project_inactivity": "Project “{{project}}” had recorded activity in the previous period, but none in the current period.",
+      "overdue_tasks": "There are currently overdue open tasks: {{count}}.",
+      "planning_gap": "{{planned}} was scheduled in the calendar and {{actual}} was recorded in sessions. These totals are compared separately.",
+      "project_concentration": "Project “{{project}}” accounts for {{share}}% of recorded work time in this range."
+    }
+  },
+  "export": {
+    "title": "Export analytics",
+    "csv": "Download CSV",
+    "json": "Download JSON",
+    "localOnly": "Created on this device; notes and attachments are excluded."
+  },
+  "workspace": {
+    "title": "This week",
+    "summary": "{{duration}} across {{sessions}} completed sessions · {{projects}} currently active projects",
+    "open": "Detailed insights"
+  }
+}

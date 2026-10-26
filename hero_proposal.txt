@@ -1,0 +1,356 @@
+The following is a <SYSTEM_MESSAGE> not actually sent by the user. It is provided by the system as important information to pay attention to.
+
+<SYSTEM_MESSAGE>
+[Message] timestamp=2026-10-25T18:26:23Z sender=d69addee-c99e-41f4-bf81-948617a407c3 priority=MESSAGE_PRIORITY_HIGH content=# Comprehensive Analysis & Implementation Proposal: Featured Hero Project Card
+
+**Target Reference:** `media_1792944871907_e21534b5.png`  
+**Current Implementation:** `src/pages/Dashboard.tsx` (lines 122–185)  
+
+---
+
+## 1. Executive Comparison Summary
+
+| Design Element | Current Implementation (`Dashboard.tsx`) | Target Screenshot Reference (`media_1792944871907_e21534b5.png`) | Discrepancies & Required Fixes |
+|---|---|---|---|
+| **Background Artwork** | Generic linear gradient (`from-[#1a1a17] via-[#141412] to-[#10100f]`) with invisible `bg-accent-olive/5` blurred circle. | Atmospheric 3D architectural interior: monumental curved arch/disc in upper-right with golden rim light, recessed doorway portal with warm backlighting, brutalist monolithic columns, low foreground 3D plinth/podium, stepped terraces on left, and dark typographic falloff gradient. | Replace flat CSS gradient with a dedicated responsive SVG/CSS 3D architectural artwork and left vignette overlay. |
+| **Project Title** | `text-2xl font-medium text-text-primary tracking-tight group-hover:text-accent-olive` | `text-[26px]` / `md:text-[28px]`, `font-normal` or `font-medium`, `leading-[1.25]`, warm off-white `#f2f0ea`. | Increase title scale to `text-2xl sm:text-[26px] md:text-[28px]`, remove distracting olive hover tint to keep the editorial serif purity. |
+| **Description Copy** | `text-xs text-text-secondary leading-relaxed max-w-lg line-clamp-2` | "Упрощение процесса регистрации для новых команд. Фокус на уверенности в каждом взаимодействии." in `text-[13px]`, `leading-[1.6]`, `max-w-[400px]`. | Constrain description width to `max-w-[400px]` so it stays strictly on the dark left half, allowing the 3D scene on the right to breathe. |
+| **Tags Header** | `{heroProject.identifier || t('dashboard.product')}` displaying `ALT-001` or `ALT-002` in a boxy badge. | Always displays **`ПРОДУКТ`** in a refined pill badge, with inline **`ИЗМЕНЕНО 12М НАЗАД`** in uppercase monospace text. | Fix badge to always render `t('dashboard.product')` ("ПРОДУКТ"), styled with `bg-white/[0.06] border border-white/[0.08] text-[#8a9e6b] font-mono text-[10px] uppercase`. |
+| **Action Button** | Two buttons: "Открыть проект" (with `ArrowUpRight`) and "Продолжить работу" (with `Play`), separated by a top border `border-t border-border-subtle/40`. | **Single button** ("Открыть проект") with no arrow icon, no play button, and **no divider line**. Button uses refined frosted glass (`backdrop-blur-md`, `bg-white/[0.06]`, `border-white/[0.12]`). | Remove second button and border line; make the single button pure frosted glassmorphism. |
+| **Team Avatars** | Two letter initial circles (`А` and `AL`) placed on the far right (`justify-between`). | Two overlapping photographic circular portraits (woman + man) placed **directly beside the frosted button** in the bottom-left corner. | Move avatars next to the "Открыть проект" button (`flex items-center gap-3`) in the bottom left, using photographic avatars with dark ring borders. |
+
+---
+
+## 2. Atmospheric Architectural 3D Depth Artwork (SVG + CSS)
+
+In the target screenshot, the card features a brutalist architectural gallery pavilion rendered in perspective with warm volumetric lighting:
+1. **Upper-Right**: A sweeping curved monumental disc / arch with a soft golden-olive rim highlight (`#a8b47e`).
+2. **Center Portal**: A vertical doorway opening into an illuminated corridor bathed in warm light (`#8a9466`), casting light onto the receding floor.
+3. **Center Divider**: Monolithic dark stone column dividing the portal from the arch.
+4. **Lower-Right Foreground**: A 3D rectangular stone plinth / podium with an illuminated top facet in perspective and shaded vertical faces.
+5. **Mid-Left Stepped Terraces**: Low brutalist steps leading down into the floor plane beneath the text.
+6. **Left Typographic Falloff**: A seamless linear gradient (`#121210` 0% → `rgba(18,18,16,0.92)` 35% → transparent 80%) ensuring absolute legibility for the off-white editorial serif typography.
+
+### Exact Production-Ready SVG Component: `HeroArtwork.tsx`
+
+```tsx
+import * as React from 'react'
+
+export function HeroArtwork({ className = '' }: { className?: string }) {
+  return (
+    <div className={`absolute inset-0 overflow-hidden pointer-events-none select-none ${className}`}>
+      <svg
+        viewBox="0 0 800 450"
+        preserveAspectRatio="xMidYMid slice"
+        className="w-full h-full"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <defs>
+          {/* Volumetric warm olive ambient glow */}
+          <radialGradient id="heroAtmosphere" cx="74%" cy="26%" r="68%">
+            <stop offset="0%" stopColor="#8a9e6b" stopOpacity="0.25" />
+            <stop offset="35%" stopColor="#58663d" stopOpacity="0.14" />
+            <stop offset="70%" stopColor="#282e1b" stopOpacity="0.05" />
+            <stop offset="100%" stopColor="#121210" stopOpacity="0" />
+          </radialGradient>
+
+          {/* Doorway portal ambient bloom */}
+          <radialGradient id="portalBloom" cx="395" cy="160" r="130" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stopColor="#a2b37c" stopOpacity="0.28" />
+            <stop offset="50%" stopColor="#677348" stopOpacity="0.12" />
+            <stop offset="100%" stopColor="#121210" stopOpacity="0" />
+          </radialGradient>
+
+          {/* Curved disc surface gradient */}
+          <linearGradient id="discSurface" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#3d422a" />
+            <stop offset="45%" stopColor="#2a2e1d" />
+            <stop offset="100%" stopColor="#171911" />
+          </linearGradient>
+
+          {/* Rim light highlight along curved disc */}
+          <linearGradient id="discRimGlow" x1="0%" y1="0%" x2="100%" y2="80%">
+            <stop offset="0%" stopColor="#b6c48f" stopOpacity="0.75" />
+            <stop offset="50%" stopColor="#7e8954" stopOpacity="0.4" />
+            <stop offset="100%" stopColor="#3d4428" stopOpacity="0.1" />
+          </linearGradient>
+
+          {/* Backlit doorway wall */}
+          <linearGradient id="portalWallGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="#8c9767" />
+            <stop offset="55%" stopColor="#5f6743" />
+            <stop offset="100%" stopColor="#333822" />
+          </linearGradient>
+
+          {/* Foreground 3D plinth top facet */}
+          <linearGradient id="plinthTopGrad" x1="0%" y1="50%" x2="100%" y2="50%">
+            <stop offset="0%" stopColor="#3f4330" />
+            <stop offset="60%" stopColor="#323525" />
+            <stop offset="100%" stopColor="#24261a" />
+          </linearGradient>
+
+          {/* Soft shadow filter */}
+          <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+            <feGaussianBlur stdDeviation="8" />
+          </filter>
+        </defs>
+
+        {/* 1. Deep charcoal canvas base */}
+        <rect width="800" height="450" fill="#121210" />
+
+        {/* 2. Atmospheric ambient haze */}
+        <rect width="800" height="450" fill="url(#heroAtmosphere)" />
+
+        {/* 3. Recessed Backlit Corridor / Doorway Portal */}
+        <rect x="375" y="40" width="38" height="235" fill="url(#portalWallGrad)" />
+        <ellipse cx="395" cy="160" rx="90" ry="120" fill="url(#portalBloom)" />
+        {/* Corridor perspective floor extending forward */}
+        <polygon points="375,275 413,275 435,290 360,290" fill="#323723" opacity="0.8" />
+
+        {/* 4. Left Pillar flanking doorway */}
+        <polygon points="338,0 375,0 375,295 338,295" fill="#151711" />
+
+        {/* 5. Center Monolithic Column */}
+        <polygon points="413,20 540,20 540,295 413,290" fill="#1a1c14" />
+        {/* Subtle column left edge highlight */}
+        <line x1="413" y1="20" x2="413" y2="290" stroke="#4e5539" strokeWidth="1" opacity="0.6" />
+
+        {/* 6. Monumental Curved Architectural Disc (Upper Right) */}
+        <path
+          d="M 460,-10 C 495,145 585,225 805,245 L 805,-10 Z"
+          fill="url(#discSurface)"
+        />
+        {/* Curved rim catchlight */}
+        <path
+          d="M 460,-10 C 495,145 585,225 805,245"
+          fill="none"
+          stroke="url(#discRimGlow)"
+          strokeWidth="2.5"
+        />
+
+        {/* 7. Low Foreground 3D Plinth / Podium (Bottom Right) */}
+        {/* Contact shadow */}
+        <ellipse cx="655" cy="390" rx="130" ry="18" fill="#090908" opacity="0.75" filter="url(#softShadow)" />
+        {/* Top facet in perspective */}
+        <polygon points="525,295 765,280 785,305 545,320" fill="url(#plinthTopGrad)" />
+        {/* Top edge specular catchlight */}
+        <line x1="525" y1="295" x2="545" y2="320" stroke="#7a855c" strokeWidth="1.5" opacity="0.8" />
+        <line x1="545" y1="320" x2="785" y2="305" stroke="#68724d" strokeWidth="1" opacity="0.6" />
+        {/* Left vertical facet */}
+        <polygon points="525,295 545,320 545,390 525,365" fill="#1f2218" />
+        {/* Front vertical facet */}
+        <polygon points="545,320 785,305 785,375 545,390" fill="#161811" />
+
+        {/* 8. Stepped Terraces on Mid-Left */}
+        {/* Step 1 */}
+        <polygon points="160,290 338,272 346,282 170,300" fill="#24271f" />
+        <polygon points="170,300 346,282 346,292 170,310" fill="#161812" />
+        {/* Step 2 */}
+        <polygon points="170,310 346,292 354,302 180,320" fill="#20221a" />
+        <polygon points="180,320 354,302 354,312 180,330" fill="#13150f" />
+        {/* Step 3 */}
+        <polygon points="180,330 354,312 362,322 190,340" fill="#1c1e17" />
+        <polygon points="190,340 362,322 362,332 190,350" fill="#10110d" />
+
+        {/* 9. Ground Plane Base */}
+        <rect x="0" y="295" width="800" height="155" fill="#141511" opacity="0.75" />
+        {/* Floor perspective specular sheen */}
+        <ellipse cx="450" cy="330" rx="180" ry="15" fill="#4d5437" opacity="0.12" />
+
+        {/* 10. Left Typographic Contrast Vignette */}
+        <rect
+          x="0"
+          y="0"
+          width="800"
+          height="450"
+          fill="url(#leftVignetteGrad)"
+        />
+        <linearGradient id="leftVignetteGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#121210" stopOpacity="0.98" />
+          <stop offset="32%" stopColor="#121210" stopOpacity="0.92" />
+          <stop offset="55%" stopColor="#121210" stopOpacity="0.55" />
+          <stop offset="78%" stopColor="#121210" stopOpacity="0.15" />
+          <stop offset="100%" stopColor="#121210" stopOpacity="0" />
+        </linearGradient>
+      </svg>
+    </div>
+  )
+}
+```
+
+---
+
+## 3. Tag Placement & Styling ('ПРОДУКТ' & 'ИЗМЕНЕНО ...')
+
+### Exact Visual Specifications
+- **Badge Container**:
+  - `px-2 py-0.5 rounded-[4px]`
+  - Background: `bg-white/[0.06]`
+  - Border: `border border-white/[0.08]`
+  - Typography: `font-mono text-[10px] font-medium tracking-[0.08em] text-[#8a9e6b] uppercase`
+  - Text: **`ПРОДУКТ`** (strictly `t('dashboard.product')` rather than the project code `ALT-001`).
+- **Relative Timestamp**:
+  - Position: Inline directly next to the badge with `gap-3`.
+  - Typography: `font-mono text-[10px] tracking-[0.06em] text-[#737166] uppercase font-normal`
+  - Text: **`ИЗМЕНЕНО 12М НАЗАД`** (rendered via `t('dashboard.updatedAgo', { time: formatRelativeTime(heroProject.updatedAt, i18n.language) })`).
+
+```tsx
+<div className="flex items-center gap-3 z-10">
+  <span className="font-mono text-[10px] uppercase tracking-[0.08em] px-2 py-0.5 rounded-[4px] bg-white/[0.06] border border-white/[0.08] text-accent-olive font-medium">
+    {t('dashboard.product')}
+  </span>
+  <span className="font-mono text-[10px] uppercase tracking-[0.06em] text-[#737166]">
+    {t('dashboard.updatedAgo', {
+      time: formatRelativeTime(heroProject.updatedAt, i18n.language),
+    })}
+  </span>
+</div>
+```
+
+---
+
+## 4. Typography Scale & Max-Width Constraints
+
+### Exact Visual Specifications
+- **Project Title**:
+  - `font-serif text-2xl sm:text-[26px] md:text-[28px]`
+  - `font-normal text-[#f2f0ea] tracking-tight leading-[1.25]`
+  - Margin: `mt-3.5 mb-2`
+  - Hover: Remove green color hover (`group-hover:text-accent-olive`) to preserve the warm off-white editorial serif contrast.
+- **Project Description**:
+  - `font-sans text-[13px] leading-[1.6] text-text-secondary` (`#918f85`)
+  - Width: `max-w-[400px]` (strictly constrained so it never covers the architectural 3D render on the right).
+  - Clamp: `line-clamp-2` or `line-clamp-3`.
+
+```tsx
+<div className="my-auto py-3 space-y-2 z-10">
+  <h3 className="font-serif text-2xl sm:text-[26px] md:text-[28px] font-normal text-text-primary tracking-tight leading-[1.25]">
+    {heroProject.name}
+  </h3>
+  <p className="text-[13px] text-text-secondary leading-[1.6] max-w-[400px] line-clamp-2 font-light">
+    {heroProject.description || heroProject.nextAction || t('dashboard.noNextAction')}
+  </p>
+</div>
+```
+
+---
+
+## 5. Frosted Glass 'Открыть проект' Button & Team Avatars
+
+### Key Layout Shift
+In `Dashboard.tsx`, the action bar currently has `justify-between` and two buttons separated by a horizontal line. In the target screenshot:
+1. The **horizontal top-border is removed**.
+2. There is **only ONE button**: "Открыть проект" (no arrow icon, no resume work button).
+3. The button and team avatars are placed **together side-by-side on the bottom left** (`flex items-center gap-3`).
+4. The bottom right is left open to reveal the 3D ground plane and podium.
+
+### Exact Button Styling (Glassmorphism)
+- `h-8 px-4`
+- `bg-white/[0.06] hover:bg-white/[0.12] active:scale-[0.98]`
+- `backdrop-blur-md`
+- `border border-white/[0.12] hover:border-white/[0.22]`
+- `shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08),0_2px_8px_rgba(0,0,0,0.25)]`
+- `rounded-lg text-xs font-medium text-[#f2f0ea] transition-all`
+
+### Exact Team Avatars Styling
+- Two overlapping circular photo avatars:
+  - Left: Female portrait (auburn hair, glasses, light blue backdrop)
+  - Right: Male portrait (beard, colorful collar)
+- Size: `h-6 w-6` or `h-6.5 w-6.5`
+- Separation: `-space-x-1.5 ring-2 ring-[#121210]`
+
+```tsx
+<div className="flex items-center gap-3.5 z-10 pt-2">
+  <button
+    type="button"
+    onClick={() => navigate(`/projects/${heroProject.id}`)}
+    className="h-8 px-4 rounded-lg text-xs font-medium text-text-primary bg-white/[0.06] hover:bg-white/[0.12] active:scale-[0.98] border border-white/[0.12] hover:border-white/[0.22] backdrop-blur-md shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08),0_2px_8px_rgba(0,0,0,0.25)] transition-all select-none cursor-pointer"
+  >
+    {t('dashboard.openProject')}
+  </button>
+
+  {/* Contributor Avatars */}
+  <div className="flex items-center -space-x-1.5">
+    <img
+      src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=64&h=64&fit=crop&crop=faces"
+      alt="Team member 1"
+      className="h-6 w-6 rounded-full object-cover ring-2 ring-[#121210] bg-[#2a2c24]"
+      onError={(e) => {
+        // Fallback for offline IndexedDB mode
+        e.currentTarget.style.display = 'none'
+      }}
+    />
+    <img
+      src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=64&h=64&fit=crop&crop=faces"
+      alt="Team member 2"
+      className="h-6 w-6 rounded-full object-cover ring-2 ring-[#121210] bg-[#1e2318]"
+      onError={(e) => {
+        e.currentTarget.style.display = 'none'
+      }}
+    />
+  </div>
+</div>
+```
+
+---
+
+## 6. Complete Drop-In Code Replacement for `Dashboard.tsx`
+
+Replace lines 123–184 of `src/pages/Dashboard.tsx` with:
+
+```tsx
+{/* Left Hero Card (7 cols in 12-col grid) */}
+<div className="lg:col-span-7 xl:col-span-8 rounded-2xl border border-white/[0.08] bg-[#121210] p-7 relative overflow-hidden shadow-sm flex flex-col justify-between min-h-[310px] group">
+  {/* 3D Atmospheric Architectural Background Artwork */}
+  <HeroArtwork />
+
+  {/* Top: Card Header Tags */}
+  <div className="flex items-center gap-3 z-10">
+    <span className="font-mono text-[10px] uppercase tracking-[0.08em] px-2 py-0.5 rounded-[4px] bg-white/[0.06] border border-white/[0.08] text-accent-olive font-medium">
+      {t('dashboard.product')}
+    </span>
+    <span className="font-mono text-[10px] uppercase tracking-[0.06em] text-[#737166]">
+      {t('dashboard.updatedAgo', {
+        time: formatRelativeTime(heroProject.updatedAt, i18n.language),
+      })}
+    </span>
+  </div>
+
+  {/* Center: Title & Constrained Description */}
+  <div className="my-auto py-3 space-y-2 z-10">
+    <h3 className="font-serif text-2xl sm:text-[26px] md:text-[28px] font-normal text-text-primary tracking-tight leading-[1.25]">
+      {heroProject.name}
+    </h3>
+    <p className="text-[13px] text-text-secondary leading-[1.6] max-w-[400px] line-clamp-2 font-light">
+      {heroProject.description || heroProject.nextAction || t('dashboard.noNextAction')}
+    </p>
+  </div>
+
+  {/* Bottom: Frosted Glass Button & Team Avatars */}
+  <div className="flex items-center gap-3.5 z-10">
+    <button
+      type="button"
+      onClick={() => navigate(`/projects/${heroProject.id}`)}
+      className="h-8 px-4 rounded-lg text-xs font-medium text-text-primary bg-white/[0.06] hover:bg-white/[0.12] active:scale-[0.98] border border-white/[0.12] hover:border-white/[0.22] backdrop-blur-md shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08),0_2px_8px_rgba(0,0,0,0.25)] transition-all select-none cursor-pointer"
+    >
+      {t('dashboard.openProject')}
+    </button>
+
+    <div className="flex items-center -space-x-1.5">
+      <img
+        src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=64&h=64&fit=crop&crop=faces"
+        alt="Team member 1"
+        className="h-6 w-6 rounded-full object-cover ring-2 ring-[#121210] bg-[#2a2c24]"
+      />
+      <img
+        src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=64&h=64&fit=crop&crop=faces"
+        alt="Team member 2"
+        className="h-6 w-6 rounded-full object-cover ring-2 ring-[#121210] bg-[#1e2318]"
+      />
+    </div>
+  </div>
+</div>
+```
+
+This proposed structure precisely replicates the depth, typography scale, tag placement, glassmorphism, and avatar positioning seen in `media_1792944871907_e21534b5.png`.
+</SYSTEM_MESSAGE>

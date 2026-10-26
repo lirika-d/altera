@@ -33,14 +33,20 @@ import {
   type CompleteSummary,
 } from '@/db/sessions'
 import type { Session, SessionStatistics, StartSessionOptions } from '@/types'
+import { useTranslation } from '@/i18n'
 
 export { formatTimer, formatDuration, formatDurationShort }
+
+const EMPTY_SESSIONS: Session[] = []
 
 // ─── Basic reactive queries ───────────────────────────────────────────────────
 
 /** Reactively returns all sessions across all projects, newest first. */
-export function useAllSessions(): Session[] {
-  return useLiveQuery(() => getAllSessions(), []) ?? []
+export function useAllSessions(enabled = true): Session[] {
+  return useLiveQuery(
+    () => enabled ? getAllSessions() : Promise.resolve(EMPTY_SESSIONS),
+    [enabled]
+  ) ?? EMPTY_SESSIONS
 }
 
 /** Reactively returns the current running or paused session (or undefined). */
@@ -181,6 +187,7 @@ interface SessionActions {
  * Suitable for use in any component that drives session controls.
  */
 export function useSessionActions(): SessionActions {
+  const { t } = useTranslation()
   const [isLoading, setIsLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
 
@@ -191,14 +198,13 @@ export function useSessionActions(): SessionActions {
       try {
         return await fn()
       } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err)
-        setError(msg)
+        setError(t('sessions.actionFailed'))
         throw err
       } finally {
         setIsLoading(false)
       }
     },
-    []
+    [t]
   )
 
   const start = React.useCallback(

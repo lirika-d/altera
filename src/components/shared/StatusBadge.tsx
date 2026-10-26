@@ -1,5 +1,6 @@
 import { cn } from '@/lib/utils'
 import type { ProjectStatus, TaskStatus } from '@/types'
+import { useTranslation } from '@/i18n'
 
 interface StatusBadgeProps {
   status: ProjectStatus | TaskStatus
@@ -8,6 +9,7 @@ interface StatusBadgeProps {
 }
 
 export function StatusBadge({ status, showLabel = true, className }: StatusBadgeProps) {
+  const { tx } = useTranslation()
   const config: Record<
     ProjectStatus | TaskStatus,
     { label: string; dotColor: string; bgClass: string; textClass: string }
@@ -88,7 +90,7 @@ export function StatusBadge({ status, showLabel = true, className }: StatusBadge
       )}
     >
       <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', dotColor)} />
-      {showLabel && <span>{label}</span>}
+      {showLabel && <span>{tx(label)}</span>}
     </span>
   )
 }

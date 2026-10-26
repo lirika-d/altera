@@ -60,10 +60,14 @@ export type SessionStatus = 'running' | 'paused' | 'completed'
 export interface Session {
   /** Primary key – UUID */
   id: string
-  /** FK → projects.id */
+  /** FK → projects.id, or historical id when projectSnapshot is present. */
   projectId: string
+  /** Preserved when the project is deleted; no live project link remains. */
+  projectSnapshot?: { id: string; name: string; identifier: string }
   /** FK → tasks.id (optional focus task) */
   taskId?: string
+  /** Optional link to the planned calendar block this real session was started from. */
+  scheduledBlockId?: string
   /** Short human label for the session */
   title: string
   /** What the user intends to accomplish this session */
@@ -113,4 +117,8 @@ export interface StartSessionOptions {
   title?: string
   objective?: string
   taskId?: string
+  scheduledBlockId?: string
 }
+
+export * from './knowledge'
+export * from './templates'

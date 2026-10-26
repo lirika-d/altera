@@ -2,21 +2,39 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ═══════════════════════════════════════════════════════════════
+   ALTERA 2.0 — Design System Tokens
+   Palette: Deep Charcoal + Warm Dark Surfaces + Olive/Sage Accents
+   Typography: Playfair Display / Lora Serif + Inter Sans + JetBrains Mono
+   ═══════════════════════════════════════════════════════════════ */
+
 :root {
-  --bg-base: #0d0d0f;
-  --bg-surface: #111113;
-  --bg-elevated: #18181b;
-  --bg-hover: #1e1e21;
-  --border: #2a2a2d;
-  --border-subtle: #222225;
-  --text-primary: #f0f0f1;
-  --text-secondary: #8b8b93;
-  --text-muted: #55555c;
-  --accent-blue: #3b82f6;
-  --accent-purple: #8b5cf6;
-  --accent-green: #22c55e;
-  --accent-amber: #f59e0b;
-  --accent-red: #ef4444;
+  /* Dark Charcoal Surface Scale */
+  --bg-base: #10110f;
+  --bg-surface: #171815;
+  --bg-elevated: #1e201b;
+  --bg-hover: #262821;
+
+  /* Subtle Warm Border Scale */
+  --border: #2c2e28;
+  --border-subtle: #242620;
+
+  /* Editorial Warm Typography */
+  --text-primary: #e9e8e1;
+  --text-secondary: #b3b2a7;
+  --text-muted: #969589;
+
+  /* Primary Stitch Accents */
+  --accent-olive: #91a276;
+  --accent-sage: #74865d;
+  --accent-sage-dim: #424d32;
+
+  /* Refined Semantic Accents */
+  --accent-blue: #7c986c;     /* Sage-green tinted accent for links & indicators */
+  --accent-purple: #95879e;
+  --accent-green: #54aa6a;
+  --accent-amber: #cda558;
+  --accent-red: #b95252;
 }
 
 * {
@@ -37,22 +55,211 @@ body {
   width: 100vw;
 }
 
-/* Custom sleek scrollbar matching dark theme */
+/* Custom sleek scrollbar matching dark warm theme */
 ::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+  width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #2a2a2d;
+  background: #353830;
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #3e3e42;
+  background: #474a40;
 }
 
 input, textarea, select, [contenteditable="true"] {
   user-select: text;
+}
+
+:where(button, a, input, textarea, select, [tabindex]):focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent-olive) 72%, white 8%);
+  outline-offset: 2px;
+}
+
+/* Keep legacy feature utilities on the shared palette until each screen is touched. */
+[class~="text-[#6b7280]"],
+[class~="text-[#737166]"],
+[class~="text-[#828075]"],
+[class~="text-[#5e5c53]"] {
+  color: var(--text-muted);
+}
+
+[class~="text-[#9ca3af]"] {
+  color: var(--text-secondary);
+}
+
+[class~="text-[#eceeed]"],
+[class~="text-[#f2f0ea]"] {
+  color: var(--text-primary);
+}
+
+[class~="text-[#8a9e6b]"] {
+  color: var(--accent-olive);
+}
+
+[class~="bg-[#8a9e6b]"] {
+  background-color: var(--accent-olive);
+}
+
+[class~="border-[#8a9e6b]"] {
+  border-color: var(--accent-olive);
+}
+
+[class~="bg-[#0e0e0d]"],
+[class~="bg-[#10110f]"] {
+  background-color: var(--bg-base);
+}
+
+[class~="bg-[#141412]"],
+[class~="bg-[#151513]"] {
+  background-color: var(--bg-surface);
+}
+
+[class~="bg-[#1a1a17]"],
+[class~="bg-[#1d211a]"],
+[class~="bg-[#1f201c]"],
+[class~="bg-[#20211d]"] {
+  background-color: var(--bg-elevated);
+}
+
+[class~="border-[#242420]"] {
+  border-color: var(--border-subtle);
+}
+
+[class~="border-[#2e2e28]"],
+[class~="border-[#34362f]"] {
+  border-color: var(--border);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* TipTap Editor Prose Styling */
+.ProseMirror {
+  outline: none !important;
+  color: var(--text-primary);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 0.9375rem;
+  line-height: 1.7;
+}
+
+.ProseMirror p {
+  margin-bottom: 0.85em;
+}
+
+.ProseMirror h1,
+.ProseMirror h2,
+.ProseMirror h3 {
+  font-family: 'Lora', 'Playfair Display', Georgia, serif;
+  color: var(--text-primary);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.ProseMirror h1 {
+  font-size: 1.875rem;
+  margin-top: 1.2em;
+  margin-bottom: 0.5em;
+  line-height: 1.25;
+}
+
+.ProseMirror h2 {
+  font-size: 1.375rem;
+  margin-top: 1.1em;
+  margin-bottom: 0.4em;
+  line-height: 1.3;
+}
+
+.ProseMirror h3 {
+  font-size: 1.125rem;
+  margin-top: 1em;
+  margin-bottom: 0.35em;
+}
+
+.ProseMirror blockquote {
+  border-left: 2px solid var(--accent-olive);
+  padding-left: 1rem;
+  margin-left: 0;
+  margin-right: 0;
+  margin-top: 1.25em;
+  margin-bottom: 1.25em;
+  font-style: italic;
+  color: var(--text-secondary);
+  font-family: 'Lora', Georgia, serif;
+}
+
+.ProseMirror code {
+  background-color: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 3px;
+  padding: 0.15em 0.35em;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85em;
+  color: var(--accent-amber);
+}
+
+.ProseMirror pre {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.85rem 1rem;
+  margin-top: 1em;
+  margin-bottom: 1em;
+  overflow-x: auto;
+}
+
+.ProseMirror pre code {
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: var(--text-primary);
+}
+
+.ProseMirror ul,
+.ProseMirror ol {
+  padding-left: 1.5rem;
+  margin-bottom: 0.85em;
+}
+
+.ProseMirror li {
+  margin-bottom: 0.25em;
+}
+
+.calendar-input {
+  display: block;
+  width: 100%;
+  min-height: 2rem;
+  border: 1px solid var(--border);
+  border-radius: 0.375rem;
+  background: var(--bg-base);
+  padding: 0.375rem 0.625rem;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 0.75rem;
+  outline: none;
+}
+
+.calendar-input:focus-visible {
+  border-color: var(--accent-olive);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-olive) 35%, transparent);
+}
+
+.calendar-input:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.calendar-input option {
+  background: var(--bg-surface);
+  color: var(--text-primary);
 }

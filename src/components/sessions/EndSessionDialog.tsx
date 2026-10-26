@@ -13,6 +13,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
 import { useSessionActions, useLiveElapsedMs, formatDuration, formatTimer } from '@/hooks/useSessions'
 import { useProject } from '@/hooks/useProjects'
+import { useTranslation } from '@/i18n'
 import type { Session, Project } from '@/types'
 import {
   CheckCircle2,
@@ -38,6 +39,7 @@ export function EndSessionDialog({
   onOpenChange,
   onSuccess,
 }: EndSessionDialogProps) {
+  const { t, tx } = useTranslation()
   const { complete } = useSessionActions()
   const liveMs = useLiveElapsedMs(session || undefined)
   const linkedProject = useProject(session?.projectId)
@@ -86,10 +88,9 @@ export function EndSessionDialog({
 
       onOpenChange(false)
       onSuccess?.()
-    } catch (err) {
+    } catch {
       // Do not silently discard entered text if saving fails!
-      const msg = err instanceof Error ? err.message : 'Failed to finalize session'
-      setErrorMessage(msg)
+      setErrorMessage(t('sessions.dialogs.finishFailed'))
     } finally {
       setIsSubmitting(false)
     }
@@ -100,35 +101,37 @@ export function EndSessionDialog({
       id: 'completed',
       label: 'Completed',
       icon: CheckCircle2,
-      color: 'text-accent-green border-accent-green/30 bg-accent-green/10',
+      color: 'text-[#8a9e6b] border-[#8a9e6b]/40 bg-[#8a9e6b]/15',
     },
     {
       id: 'progress',
       label: 'Progress Made',
       icon: Clock,
-      color: 'text-accent-blue border-accent-blue/30 bg-accent-blue/10',
+      color: 'text-[#a3b899] border-[#a3b899]/40 bg-[#1f201c]',
     },
     {
       id: 'blocked',
       label: 'Blocked',
       icon: AlertCircle,
-      color: 'text-accent-red border-accent-red/30 bg-accent-red/10',
+      color: 'text-amber-400 border-amber-500/40 bg-amber-500/15',
     },
   ]
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md bg-[#141412] border-[#242420] text-[#eceeed]">
         <form onSubmit={handleSubmit} className="space-y-4">
           <DialogHeader>
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="flex h-7 w-7 items-center justify-center rounded-md bg-accent-green/15 text-accent-green border border-accent-green/20">
-                  <Flag className="h-3.5 w-3.5" />
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#8a9e6b]/15 text-[#8a9e6b] border border-[#8a9e6b]/20">
+                  <Flag className="h-4 w-4" />
                 </div>
                 <div>
-                  <DialogTitle>Complete Work Session</DialogTitle>
-                  <p className="text-[11px] text-text-secondary truncate max-w-[280px]">
+                  <DialogTitle className="font-serif text-lg text-[#eceeed]">
+                    {t('sessions.dialogs.endTitle')}
+                  </DialogTitle>
+                  <p className="text-xs text-[#9ca3af] truncate max-w-[280px]">
                     {session.project ? `${session.project.icon || '📁'} ${session.project.name} • ` : ''}
                     {session.title}
                   </p>
@@ -136,40 +139,38 @@ export function EndSessionDialog({
               </div>
             </div>
             <DialogDescription className="sr-only">
-              Document accomplishments, blockers, and next steps for this work session.
+              {t('sessions.dialogs.endDesc')}
             </DialogDescription>
           </DialogHeader>
 
           {/* Prominent final duration banner */}
-          <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-bg-base">
+          <div className="flex items-center justify-between p-3.5 rounded-xl border border-[#242420] bg-[#0e0e0d]">
             <div>
-              <span className="text-[10px] uppercase font-semibold text-text-muted">
-                Final Session Duration
-              </span>
-              <div className="font-mono text-xl font-bold text-text-primary mt-0.5">
+              <span className="text-[10px] uppercase font-semibold text-[#6b7280] tracking-wider">
+                {tx("Final Session Duration")}</span>
+              <div className="font-mono text-xl font-bold text-[#eceeed] mt-0.5">
                 {formatTimer(liveMs)}
-                <span className="text-xs font-normal text-text-secondary ml-2">
+                <span className="text-xs font-normal text-[#9ca3af] ml-2">
                   ({formatDuration(liveMs)})
                 </span>
               </div>
             </div>
-            <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-bg-elevated border border-border-subtle text-[11px] text-text-muted font-mono">
-              <Sparkles className="h-3 w-3 text-accent-blue" />
-              <span>Auto-saved to history</span>
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#1a1a17] border border-[#242420] text-xs text-[#8a9e6b] font-mono">
+              <Sparkles className="h-3.5 w-3.5 text-[#8a9e6b]" />
+              <span>{tx("Auto-saved")}</span>
             </div>
           </div>
 
           {errorMessage && (
-            <div className="p-2.5 rounded-md border border-accent-red/30 bg-accent-red/10 text-accent-red text-xs">
+            <div className="p-3 rounded-lg border border-red-500/30 bg-red-950/20 text-red-300 text-xs">
               {errorMessage}
             </div>
           )}
 
           {/* Outcome pill selector */}
           <div className="space-y-1.5">
-            <label className="text-[11px] font-medium text-text-secondary">
-              Session Outcome
-            </label>
+            <label className="text-xs font-medium text-[#9ca3af]">
+              {tx("Session Outcome")}</label>
             <div className="grid grid-cols-3 gap-2">
               {outcomes.map((item) => {
                 const Icon = item.icon
@@ -180,14 +181,14 @@ export function EndSessionDialog({
                     type="button"
                     onClick={() => setOutcome(item.id)}
                     className={cn(
-                      'flex items-center justify-center gap-1.5 h-8 px-2 rounded-md border text-xs font-medium transition-all',
+                      'flex items-center justify-center gap-1.5 h-8 px-2 rounded-lg border text-xs font-medium transition-all duration-150',
                       isSelected
-                        ? item.color + ' ring-1 ring-white/20'
-                        : 'border-border bg-bg-base text-text-muted hover:text-text-primary hover:bg-bg-hover'
+                        ? item.color + ' ring-1 ring-white/10 font-semibold'
+                        : 'border-[#242420] bg-[#0e0e0d] text-[#6b7280] hover:text-[#eceeed] hover:bg-[#1a1a17]'
                     )}
                   >
                     <Icon className="h-3.5 w-3.5 shrink-0" />
-                    <span>{item.label}</span>
+                    <span>{tx(item.label)}</span>
                   </button>
                 )
               })}
@@ -196,81 +197,83 @@ export function EndSessionDialog({
 
           {/* What did you accomplish? */}
           <div className="space-y-1.5">
-            <label className="text-[11px] font-medium text-text-secondary">
-              What did you accomplish?
+            <label className="text-xs font-medium text-[#9ca3af]">
+              {t('sessions.dialogs.accomplishments')}
             </label>
             <Textarea
-              placeholder="Key achievements, completed checklist items, pull requests..."
+              placeholder={tx("Key achievements, completed checklist items, pull requests...")}
               rows={2}
               value={accomplishments}
               onChange={(e) => setAccomplishments(e.target.value)}
+              className="bg-[#0e0e0d] border-[#242420] text-[#eceeed] focus-visible:border-[#8a9e6b]"
               autoFocus
             />
           </div>
 
           {/* Were there any blockers? */}
           <div className="space-y-1.5">
-            <label className="text-[11px] font-medium text-text-secondary">
-              Were there any blockers? <span className="text-text-muted">(Optional)</span>
+            <label className="text-xs font-medium text-[#9ca3af]">
+              {t('sessions.dialogs.blockers')} <span className="text-[#6b7280]">{tx("(Optional)")}</span>
             </label>
             <Textarea
-              placeholder="Unresolved bugs, technical constraints, missing assets..."
+              placeholder={tx("Unresolved bugs, technical constraints, missing assets...")}
               rows={2}
               value={blockers}
               onChange={(e) => setBlockers(e.target.value)}
+              className="bg-[#0e0e0d] border-[#242420] text-[#eceeed] focus-visible:border-[#8a9e6b]"
             />
           </div>
 
           {/* What should you do next? */}
-          <div className="space-y-2 p-2.5 rounded-md bg-accent-blue/5 border border-accent-blue/20">
-            <label className="text-[11px] font-semibold text-accent-blue flex items-center justify-between">
-              <span>What should you do next?</span>
-              <span className="text-[10px] text-text-muted font-normal">Resumption anchor</span>
+          <div className="space-y-2 p-3 rounded-xl bg-[#8a9e6b]/5 border border-[#8a9e6b]/20">
+            <label className="text-xs font-semibold text-[#8a9e6b] flex items-center justify-between">
+              <span>{t('sessions.dialogs.nextAction')}</span>
+              <span className="text-[10px] text-[#6b7280] font-normal">{tx("Resumption anchor")}</span>
             </label>
             <Input
-              placeholder="Immediate next step when resuming this project..."
+              placeholder={tx("Immediate next step when resuming this project...")}
               value={nextStep}
               onChange={(e) => setNextStep(e.target.value)}
-              className="border-accent-blue/30 focus-visible:border-accent-blue text-xs"
+              className="bg-[#0e0e0d] border-[#8a9e6b]/30 focus-visible:border-[#8a9e6b] text-xs text-[#eceeed]"
             />
 
             {/* Sync to project next action */}
             {session.projectId && (
-              <div className="pt-2 border-t border-accent-blue/15 space-y-1">
+              <div className="pt-2 border-t border-[#8a9e6b]/15 space-y-1">
                 <label className="flex items-center gap-2 cursor-pointer select-none">
                   <Checkbox
                     checked={syncToNextAction}
                     onCheckedChange={(checked) => setSyncToNextAction(!!checked)}
-                    className="h-3.5 w-3.5"
+                    className="h-3.5 w-3.5 data-[state=checked]:bg-[#8a9e6b] data-[state=checked]:border-[#8a9e6b]"
                   />
-                  <span className="text-[11px] text-text-secondary">
-                    Update project's Next Action with this step
-                  </span>
+                  <span className="text-xs text-[#9ca3af]">
+                    {tx("Update project's Next Action with this step")}</span>
                 </label>
                 {project?.nextAction && (
-                  <p className="text-[10px] text-text-muted pl-5 truncate">
-                    Current: <span className="italic">"{project.nextAction}"</span>
+                  <p className="text-[11px] text-[#6b7280] pl-5.5 truncate">
+                    {tx("Current:")} <span className="italic text-[#9ca3af]">"{project.nextAction}"</span>
                   </p>
                 )}
               </div>
             )}
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="gap-2 sm:gap-0 pt-2 border-t border-[#242420]">
             <Button
               type="button"
               variant="ghost"
               onClick={() => onOpenChange(false)}
+              className="text-[#9ca3af] hover:text-[#eceeed]"
             >
-              Cancel
-            </Button>
+              {tx("Cancel")}</Button>
             <Button
               type="submit"
+              variant="olive"
               disabled={isSubmitting}
               className="gap-1.5 shadow-sm"
             >
               <CheckCircle2 className="h-3.5 w-3.5" />
-              <span>{isSubmitting ? 'Saving…' : 'Finalize & Complete'}</span>
+              <span>{isSubmitting ? tx("Saving…") : t('sessions.dialogs.saveAndComplete')}</span>
             </Button>
           </DialogFooter>
         </form>

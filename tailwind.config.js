@@ -27,6 +27,13 @@ export default {
         'text-primary': withOpacity('--text-primary'),
         'text-secondary': withOpacity('--text-secondary'),
         'text-muted': withOpacity('--text-muted'),
+
+        // Stitch Olive / Sage Editorial palette
+        'accent-olive': withOpacity('--accent-olive'),
+        'accent-sage': withOpacity('--accent-sage'),
+        'accent-sage-dim': withOpacity('--accent-sage-dim'),
+
+        // Compatibility aliases with new warm tones
         'accent-blue': withOpacity('--accent-blue'),
         'accent-purple': withOpacity('--accent-purple'),
         'accent-green': withOpacity('--accent-green'),
@@ -35,7 +42,12 @@ export default {
       },
       fontFamily: {
         sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+        serif: ['Lora', 'Playfair Display', 'Georgia', 'serif'],
+        display: ['Playfair Display', 'Lora', 'Georgia', 'serif'],
         mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
+      },
+      letterSpacing: {
+        section: '0.12em',
       },
     },
   },
